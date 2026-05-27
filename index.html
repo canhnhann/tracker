@@ -84,6 +84,7 @@ function today() { return toDateKey(new Date()); }
 const STORAGE_KEY = "studytodo_v3";
 const SCHEDULE_KEY = "studytodo_schedule";
 const SOANBAI_KEY = "studytodo_soanbai";
+const TAICHINH_KEY = "studytodo_taichinh";
 function loadData() {
   try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : { subjects: [] }; }
   catch { return { subjects: [] }; }
@@ -99,6 +100,11 @@ function loadSoanBai() {
   catch { return { subjects: [] }; }
 }
 function saveSoanBai(d) { try { localStorage.setItem(SOANBAI_KEY, JSON.stringify(d)); } catch {} }
+function loadTaiChinh() {
+  try { const r = localStorage.getItem(TAICHINH_KEY); return r ? JSON.parse(r) : { dichLam: 0, chiCungXang: 0, chiCungTietKiem: 0, chiTieuHangNgay: [] }; }
+  catch { return { dichLam: 0, chiCungXang: 0, chiCungTietKiem: 0, chiTieuHangNgay: [] }; }
+}
+function saveTaiChinh(d) { try { localStorage.setItem(TAICHINH_KEY, JSON.stringify(d)); } catch {} }
 
 /* ─── Firebase Sync Hook ─── */
 function useFirebaseSync() {
@@ -390,13 +396,10 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
 }
 
 /* ─── SoanBaiPage ─── */
-function SoanBaiPage({ theme, isMobile }) {
+function SoanBaiPage({ theme, isMobile, soanBaiData, setSoanBaiData }) {
   const { accent, dot } = theme;
-  const [soanBaiData, setSoanBaiData] = useState(() => loadSoanBai());
   const [addingSubject, setAddingSubject] = useState(false);
   const [newName, setNewName] = useState("");
-
-  useEffect(() => { saveSoanBai(soanBaiData); }, [soanBaiData]);
 
   const addSubject = () => {
     if (!newName.trim()) return;
@@ -441,7 +444,7 @@ function SoanBaiPage({ theme, isMobile }) {
           {IC.plus} Thêm môn dạy
         </button>
       )}
-      <p style={{ marginTop: 44, fontSize: 11, color: "#d1d5db", textAlign: "center", letterSpacing: ".03em", fontWeight: 500 }}>Dữ liệu lưu tự động trong thiết bị này</p>
+      <p style={{ marginTop: 44, fontSize: 11, color: "#d1d5db", textAlign: "center", letterSpacing: ".03em", fontWeight: 500 }}>Dữ liệu tự động đồng bộ qua đám mây ☁️</p>
     </div>
   );
 }
@@ -877,11 +880,435 @@ function CalendarPage({ theme, isMobile, schedule, onScheduleChange }) {
   );
 }
 
+/* ─── DonutChart SVG ─── */
+function DonutChart({ segments, size }) {
+  size = size || 120;
+  var r = 42, cx = 60, cy = 60, stroke = 12;
+  var circum = 2 * Math.PI * r;
+  var offset = 0;
+  var total = segments.reduce(function(a, s) { return a + s.value; }, 0);
+  if (total === 0) return (
+    <svg width={size} height={size} viewBox="0 0 120 120">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={stroke} />
+      <text x={cx} y={cy+5} textAnchor="middle" fontSize="12" fill="#d1d5db" fontFamily="inherit">—</text>
+    </svg>
+  );
+  var arcs = segments.map(function(seg, i) {
+    var pct = seg.value / total;
+    var dash = pct * circum;
+    var gap = circum - dash;
+    var el = (
+      <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+        stroke={seg.color} strokeWidth={stroke}
+        strokeDasharray={dash + " " + gap}
+        strokeDashoffset={-offset * circum}
+        strokeLinecap="butt"
+      />
+    );
+    offset += pct;
+    return el;
+  });
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" style={{transform:"rotate(-90deg)"}}>
+      {arcs}
+    </svg>
+  );
+}
+
+/* ─── MonthBarChart ─── */
+function MonthBarChart({ months, accent }) {
+  if (!months.length) return null;
+  var maxVal = Math.max.apply(null, months.map(function(m){return m.chi;}));
+  if (maxVal < 1) maxVal = 1;
+  var BAR_W = 32, GAP = 8;
+  var chartW = months.length * (BAR_W + GAP);
+  return (
+    <div style={{ overflowX: "auto", paddingBottom: 4 }}>
+      <svg width={Math.max(chartW, 200)} height={80} style={{ display: "block" }}>
+        {months.map(function(m, i) {
+          var barH = Math.max((m.chi / maxVal) * 54, m.chi > 0 ? 4 : 0);
+          var x = i * (BAR_W + GAP);
+          return (
+            <g key={m.label}>
+              <rect x={x} y={60 - barH} width={BAR_W} height={barH} rx={5}
+                fill={accent} fillOpacity={0.85} />
+              <text x={x + BAR_W / 2} y={75} textAnchor="middle" fontSize="9"
+                fill="#9ca3af" fontFamily="inherit">{m.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* ─── TaiChinhPage ─── */
+function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
+  const { accent, accentLight, accentText, dot } = theme;
+  const [showChiTieu, setShowChiTieu] = useState(false);
+  const [showAddChiTieu, setShowAddChiTieu] = useState(false);
+  const [showThongKe, setShowThongKe] = useState(false);
+  const [newChiTieu, setNewChiTieu] = useState({ ngay: today(), noidung: "", sotien: "", danhmuc: "" });
+  const [filterMonth, setFilterMonth] = useState(() => today().slice(0, 7));
+
+  const DANHMUC_GY = ["🍜 Ăn uống","☕ Cà phê","⛽ Xăng","🛒 Mua sắm","🏥 Y tế","📚 Học tập","🎮 Giải trí","🚗 Đi lại","💡 Điện nước","📱 Điện thoại","🏠 Nhà cửa","🎁 Quà tặng","💪 Thể thao","✈️ Du lịch","🔧 Sửa chữa","Khác"];
+  const CAT_COLORS = ["#6366f1","#f59e0b","#10b981","#e05c7a","#3b82f6","#8b5cf6","#14b8a6","#f97316","#ef4444","#84cc16","#06b6d4","#ec4899","#a78bfa","#fb923c","#34d399","#9ca3af"];
+
+  const thuNhapDayThem = (soanBaiData.subjects || []).reduce((total, s) => {
+    const sal = s.salary || {};
+    const rows = (s.scheduleRows || []).filter(r => r.day);
+    const sessionsPerWeek = rows.length;
+    const hoursPerSession = parseFloat(sal.hoursPerSession) || 0;
+    const ratePerHour = parseFloat(sal.ratePerHour) || 0;
+    const weeksPerMonth = parseFloat(sal.weeksPerMonth) || 4;
+    return total + sessionsPerWeek * hoursPerSession * ratePerHour * weeksPerMonth;
+  }, 0);
+
+  // thuNhapDayThem từ SoanBai tính ra VND thô, chia 1000 để về đơn vị nghìn đồng
+  const thuNhapDayThemK = thuNhapDayThem / 1000;
+
+  const dichLam = parseFloat(taiChinh.dichLam) || 0;
+  const chiCungXang = parseFloat(taiChinh.chiCungXang) || 0;
+  const chiCungTietKiem = parseFloat(taiChinh.chiCungTietKiem) || 0;
+
+  const chiTieuAll = taiChinh.chiTieuHangNgay || [];
+  const chiTieuFiltered = chiTieuAll.filter(c => c.ngay && c.ngay.startsWith(filterMonth));
+  const totalChiTieuHangNgay = chiTieuFiltered.reduce((a, c) => a + (parseFloat(c.sotien) || 0), 0);
+
+  const totalThuNhap = dichLam + thuNhapDayThemK;
+  const totalChiCung = chiCungXang + chiCungTietKiem;
+  const totalChi = totalChiCung + totalChiTieuHangNgay;
+  const conLai = totalThuNhap - totalChi;
+
+  const addChiTieu = () => {
+    if (!newChiTieu.noidung.trim() || !newChiTieu.sotien) return;
+    const entry = { id: uid(), ...newChiTieu, sotien: parseFloat(newChiTieu.sotien) || 0 };
+    setTaiChinh(d => ({ ...d, chiTieuHangNgay: [entry, ...(d.chiTieuHangNgay || [])] }));
+    setNewChiTieu({ ngay: today(), noidung: "", sotien: "", danhmuc: "" });
+    setShowAddChiTieu(false);
+  };
+  const deleteChiTieu = (id) => setTaiChinh(d => ({ ...d, chiTieuHangNgay: d.chiTieuHangNgay.filter(c => c.id !== id) }));
+
+  const K = 1000;
+  const fmtMoney = (n) => n > 0 ? (n * K).toLocaleString("vi-VN") + "đ" : "—";
+  const fmtK = (n) => n > 0 ? (n * K).toLocaleString("vi-VN") + "đ" : "—";
+  const inputS = { background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:8, color:"#374151", fontSize:isMobile?15:13, padding:isMobile?"10px 12px":"7px 10px", outline:"none", fontFamily:"inherit", width:"100%" };
+  const labelS = { fontSize:11, fontWeight:700, color:"#9ca3af", letterSpacing:".05em", textTransform:"uppercase", marginBottom:4, display:"block" };
+  const bottomPad = isMobile ? "calc(24px + env(safe-area-inset-bottom))" : "80px";
+
+  const grouped = {};
+  chiTieuFiltered.forEach(c => { if (!grouped[c.ngay]) grouped[c.ngay] = []; grouped[c.ngay].push(c); });
+  const groupedDays = Object.keys(grouped).sort((a,b) => b.localeCompare(a));
+
+  const allMonths = [...new Set([chiTieuAll.map(c=>c.ngay?.slice(0,7)), today().slice(0,7)].flat().filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+
+  // Thống kê
+  const catMap = {};
+  chiTieuFiltered.forEach(c => {
+    const key = c.danhmuc || "Khác";
+    catMap[key] = (catMap[key] || 0) + (parseFloat(c.sotien) || 0);
+  });
+  const catEntries = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+  const donutSegments = catEntries.map(([name, val], i) => ({ name, value: val, color: CAT_COLORS[i % CAT_COLORS.length] }));
+
+  const daysInMonth = new Date(filterMonth.slice(0,4), filterMonth.slice(5), 0).getDate();
+  const avgPerDay = totalChiTieuHangNgay / daysInMonth;
+
+  const last6Months = allMonths.slice(0, 6).reverse();
+  const monthBars = last6Months.map(m => {
+    const chi = chiTieuAll.filter(c=>c.ngay?.startsWith(m)).reduce((a,c)=>a+(parseFloat(c.sotien)||0),0);
+    return { label: "T"+m.slice(5), chi };
+  });
+
+  const topChiTieu = [...chiTieuFiltered].sort((a,b)=>(parseFloat(b.sotien)||0)-(parseFloat(a.sotien)||0)).slice(0,3);
+
+  return (
+    <div style={{ maxWidth:isMobile?"100%":720, margin:"0 auto", padding:isMobile?`16px 16px ${bottomPad}`:"24px 28px 80px" }}>
+
+      {/* Bộ lọc tháng + nút thống kê */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, fontWeight:700, color:"#9ca3af", textTransform:"uppercase", letterSpacing:".06em" }}>Tháng</span>
+          <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:8, color:"#374151", fontSize:13, fontWeight:700, padding:"6px 10px", outline:"none", fontFamily:"inherit", cursor:"pointer" }}>
+            {allMonths.map(m => <option key={m} value={m}>{m.slice(5)}/{m.slice(0,4)}</option>)}
+          </select>
+        </div>
+        <button onClick={()=>setShowThongKe(v=>!v)} style={{ background:showThongKe?accentLight:"#f9fafb", border:`1px solid ${showThongKe?accent+"55":"#e5e7eb"}`, borderRadius:8, padding:isMobile?"8px 12px":"6px 12px", cursor:"pointer", color:showThongKe?accentText:"#9ca3af", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+          {IC.chart} {showThongKe ? "Ẩn thống kê" : "Xem thống kê"}
+        </button>
+      </div>
+
+      {/* Tổng quan */}
+      <div style={{ background:`linear-gradient(135deg,${accentLight},#fff)`, border:`1px solid ${accent}22`, borderRadius:isMobile?14:16, padding:isMobile?"16px":"20px 24px", marginBottom:14 }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:".1em", textTransform:"uppercase", color:accentText, marginBottom:14, display:"flex", alignItems:"center", gap:6 }}>
+          {IC.chart} Tổng quan tháng {filterMonth.slice(5)}/{filterMonth.slice(0,4)}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:isMobile?8:10, marginBottom:14 }}>
+          {[
+            { label:"Thu nhập", value:totalThuNhap, color:"#16a34a", bg:"#f0fdf4", border:"#bbf7d0" },
+            { label:"Chi tiêu", value:totalChi, color:"#dc2626", bg:"#fef2f2", border:"#fecaca" },
+            { label:"Còn lại", value:conLai, color:conLai>=0?"#2563eb":"#dc2626", bg:conLai>=0?"#eff6ff":"#fef2f2", border:conLai>=0?"#bfdbfe":"#fecaca" },
+          ].map(({ label, value, color, bg, border }) => (
+            <div key={label} style={{ background:bg, border:`1px solid ${border}`, borderRadius:10, padding:isMobile?"10px 8px":"12px 14px", textAlign:"center" }}>
+              <div style={{ fontSize:11, color:"#9ca3af", fontWeight:600, marginBottom:4 }}>{label}</div>
+              <div style={{ fontSize:isMobile?13:15, fontWeight:800, color, letterSpacing:"-.02em", lineHeight:1.1 }}>{(Math.abs(value)*1000).toLocaleString("vi-VN")}đ{value<0?" (âm)":""}</div>
+            </div>
+          ))}
+        </div>
+        {totalThuNhap > 0 && (
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+              <span style={{ fontSize:11, color:"#6b7280", fontWeight:500 }}>Tỷ lệ chi tiêu</span>
+              <span style={{ fontSize:11, fontWeight:700, color:totalChi/totalThuNhap>0.9?"#dc2626":"#6b7280" }}>{Math.min(Math.round(totalChi/totalThuNhap*100),100)}%</span>
+            </div>
+            <div style={{ height:7, background:"#e5e7eb", borderRadius:4, overflow:"hidden" }}>
+              <div style={{ height:"100%", width:`${Math.min(totalChi/totalThuNhap*100,100)}%`, background:totalChi/totalThuNhap>0.9?`#dc2626`:accent, borderRadius:4, transition:"width .5s" }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Thống kê chi tiết (toggle) */}
+      {showThongKe && (
+        <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:isMobile?14:12, overflow:"hidden", marginBottom:14, boxShadow:"0 2px 12px rgba(0,0,0,.06)" }}>
+          <div style={{ height:3, background:`linear-gradient(90deg,${accent},${accent}88,#c084fc)` }} />
+          <div style={{ padding:isMobile?"14px 16px":"16px 20px" }}>
+            <div style={{ fontSize:11, fontWeight:700, color:accentText, letterSpacing:".08em", textTransform:"uppercase", marginBottom:16 }}>📊 Thống kê chi tiết</div>
+
+            {/* 4 số nhanh */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, marginBottom:16 }}>
+              {[
+                { label:"TB chi/ngày", value:avgPerDay>0?(avgPerDay*1000).toLocaleString("vi-VN",{maximumFractionDigits:0})+"đ":"—", color:"#7c3aed" },
+                { label:"Số khoản chi", value:chiTieuFiltered.length, color:accentText },
+                { label:"Chi tiêu cứng", value:fmtMoney(totalChiCung), color:"#b45309" },
+                { label:"Tiết kiệm", value:fmtMoney(chiCungTietKiem), color:"#0369a1" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background:"#f9fafb", border:"1px solid #f3f4f6", borderRadius:10, padding:isMobile?"10px 12px":"10px 14px" }}>
+                  <div style={{ fontSize:10, color:"#9ca3af", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:4 }}>{label}</div>
+                  <div style={{ fontSize:isMobile?15:16, fontWeight:800, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Donut + danh mục */}
+            <div style={{ display:"flex", gap:isMobile?12:16, alignItems:"flex-start", marginBottom:16 }}>
+              <div style={{ flexShrink:0, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                <div style={{ fontSize:10, color:"#9ca3af", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:6 }}>Phân bổ</div>
+                <DonutChart segments={donutSegments} size={isMobile?88:100} />
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:10, color:"#9ca3af", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:6 }}>Theo danh mục</div>
+                {catEntries.length === 0 ? (
+                  <div style={{ fontSize:12, color:"#d1d5db", paddingTop:8 }}>Chưa có dữ liệu</div>
+                ) : catEntries.map(([name, val], i) => (
+                  <div key={name} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:5 }}>
+                    <span style={{ width:8, height:8, borderRadius:"50%", background:CAT_COLORS[i%CAT_COLORS.length], flexShrink:0 }} />
+                    <span style={{ fontSize:isMobile?12:11.5, color:"#374151", flex:1, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{name}</span>
+                    <span style={{ fontSize:isMobile?12:11.5, fontWeight:700, color:"#dc2626", flexShrink:0 }}>{(val*1000).toLocaleString("vi-VN")}đ</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Biểu đồ cột xu hướng */}
+            {monthBars.length > 1 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:10, color:"#9ca3af", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:8 }}>Xu hướng chi hằng ngày</div>
+                <MonthBarChart months={monthBars} accent={accent} />
+              </div>
+            )}
+
+            {/* Top khoản chi lớn */}
+            {topChiTieu.length > 0 && (
+              <div>
+                <div style={{ fontSize:10, color:"#9ca3af", fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:8 }}>🔝 Chi nhiều nhất tháng này</div>
+                {topChiTieu.map((c, i) => (
+                  <div key={c.id} style={{ display:"flex", alignItems:"center", gap:10, padding:isMobile?"8px 0":"6px 0", borderBottom:i<topChiTieu.length-1?"1px solid #f9fafb":"none" }}>
+                    <span style={{ fontSize:11, fontWeight:800, color:["#dc2626","#f59e0b","#6b7280"][i], width:16, textAlign:"center" }}>{["①","②","③"][i]}</span>
+                    <span style={{ flex:1, fontSize:isMobile?13:12, color:"#374151", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.noidung}{c.danhmuc?" · "+c.danhmuc:""}</span>
+                    <span style={{ fontSize:isMobile?13:12, fontWeight:700, color:"#dc2626", flexShrink:0 }}>{(parseFloat(c.sotien)||0).toLocaleString("vi-VN")}đ</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Thu nhập */}
+      <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:isMobile?14:12, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
+        <div style={{ height:3, background:"linear-gradient(90deg,#16a34a,#86efac)" }} />
+        <div style={{ padding:isMobile?"14px 16px":"12px 16px" }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"#16a34a", letterSpacing:".08em", textTransform:"uppercase", marginBottom:12 }}>💰 Thu nhập</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:12 }}>
+            <div>
+              <span style={labelS}>Đi làm / tháng (nghìn đ)</span>
+              <input type="number" value={taiChinh.dichLam||""} onChange={e=>setTaiChinh(d=>({...d,dichLam:e.target.value}))} placeholder="VD: 5000" style={inputS} min="0" />
+            </div>
+            <div>
+              <span style={labelS}>Dạy thêm (tự tính từ Lớp dạy)</span>
+              <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:isMobile?"10px 12px":"7px 10px", fontSize:isMobile?15:13, color:"#16a34a", fontWeight:700 }}>
+                {thuNhapDayThemK > 0 ? (thuNhapDayThemK*1000).toLocaleString("vi-VN") + "đ" : <span style={{ color:"#9ca3af", fontWeight:400 }}>Chưa có dữ liệu lớp dạy</span>}
+              </div>
+            </div>
+          </div>
+          {(dichLam > 0 || thuNhapDayThemK > 0) && (
+            <div style={{ marginTop:10, display:"flex", gap:6, flexWrap:"wrap" }}>
+              {dichLam > 0 && <span style={{ fontSize:11, background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:6, padding:"3px 8px", color:"#15803d", fontWeight:600 }}>Đi làm: {(dichLam*1000).toLocaleString("vi-VN")}đ</span>}
+              {thuNhapDayThemK > 0 && <span style={{ fontSize:11, background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:6, padding:"3px 8px", color:"#15803d", fontWeight:600 }}>Dạy thêm: {(thuNhapDayThemK*1000).toLocaleString("vi-VN")}đ</span>}
+            </div>
+          )}
+          <div style={{ marginTop:12, background:`${accent}10`, borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:12, color:accentText, fontWeight:600 }}>Tổng thu nhập</span>
+            <span style={{ fontSize:isMobile?17:16, fontWeight:800, color:accentText }}>{fmtMoney(totalThuNhap)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chi tiêu cứng */}
+      <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:isMobile?14:12, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
+        <div style={{ height:3, background:"linear-gradient(90deg,#f59e0b,#fde68a)" }} />
+        <div style={{ padding:isMobile?"14px 16px":"12px 16px" }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"#b45309", letterSpacing:".08em", textTransform:"uppercase", marginBottom:12 }}>🔒 Chi tiêu cứng</div>
+          <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:12 }}>
+            <div>
+              <span style={labelS}>⛽ Xăng / tháng (nghìn đ)</span>
+              <input type="number" value={taiChinh.chiCungXang||""} onChange={e=>setTaiChinh(d=>({...d,chiCungXang:e.target.value}))} placeholder="VD: 300" style={inputS} min="0" />
+            </div>
+            <div>
+              <span style={labelS}>💳 Tiết kiệm / tháng (nghìn đ)</span>
+              <input type="number" value={taiChinh.chiCungTietKiem||""} onChange={e=>setTaiChinh(d=>({...d,chiCungTietKiem:e.target.value}))} placeholder="VD: 1000" style={inputS} min="0" />
+            </div>
+          </div>
+          {(chiCungXang > 0 || chiCungTietKiem > 0) && (
+            <div style={{ marginTop:10, display:"flex", gap:6 }}>
+              {chiCungXang > 0 && <span style={{ fontSize:11, background:"#fffbeb", border:"1px solid #fde68a", borderRadius:6, padding:"3px 8px", color:"#b45309", fontWeight:600 }}>⛽ {(chiCungXang*1000).toLocaleString("vi-VN")}đ</span>}
+              {chiCungTietKiem > 0 && <span style={{ fontSize:11, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:6, padding:"3px 8px", color:"#1d4ed8", fontWeight:600 }}>💳 {(chiCungTietKiem*1000).toLocaleString("vi-VN")}đ</span>}
+            </div>
+          )}
+          <div style={{ marginTop:12, background:"#fffbeb", borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontSize:12, color:"#b45309", fontWeight:600 }}>Tổng chi cứng</span>
+            <span style={{ fontSize:isMobile?17:16, fontWeight:800, color:"#b45309" }}>{fmtMoney(totalChiCung)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chi tiêu hằng ngày */}
+      <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:isMobile?14:12, overflow:"hidden", marginBottom:14, boxShadow:"0 1px 6px rgba(0,0,0,.04)" }}>
+        <div style={{ height:3, background:"linear-gradient(90deg,#e05c7a,#f9a8d4)" }} />
+        <div style={{ padding:isMobile?"14px 16px":"12px 16px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:"#be185d", letterSpacing:".08em", textTransform:"uppercase" }}>📋 Chi tiêu hằng ngày</div>
+              <div style={{ fontSize:12, color:"#9ca3af", marginTop:2 }}>
+                Tháng {filterMonth.slice(5)}: <b style={{color:"#be185d"}}>{totalChiTieuHangNgay > 0 ? (totalChiTieuHangNgay*1000).toLocaleString("vi-VN")+"đ" : "—"}</b>
+                {chiTieuFiltered.length > 0 && <span> · {chiTieuFiltered.length} khoản</span>}
+              </div>
+            </div>
+            <button onClick={()=>setShowChiTieu(v=>!v)} style={{ background:showChiTieu?"#fce7f3":"#f9fafb", border:`1px solid ${showChiTieu?"#fbcfe8":"#e5e7eb"}`, borderRadius:8, padding:isMobile?"8px 14px":"5px 12px", cursor:"pointer", color:showChiTieu?"#be185d":"#9ca3af", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5, flexShrink:0 }}>
+              {showChiTieu ? "▲ Đóng" : "▼ Mở"}
+            </button>
+          </div>
+
+          {showChiTieu && (
+            <div style={{ marginTop:14 }}>
+              <button onClick={()=>setShowAddChiTieu(v=>!v)} style={{ width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:6, background:showAddChiTieu?"#fce7f3":"#fff0f6", border:`1.5px dashed ${showAddChiTieu?"#f9a8d4":"#fda4af"}`, borderRadius:9, color:"#be185d", fontSize:isMobile?14:13, padding:isMobile?"12px":"9px", cursor:"pointer", fontWeight:700, marginBottom:12 }}>
+                {IC.plus} Thêm chi tiêu mới
+              </button>
+
+              {showAddChiTieu && (
+                <div style={{ background:"#fff5f8", border:"1px solid #fbcfe8", borderRadius:10, padding:isMobile?"14px":"12px", marginBottom:14, display:"flex", flexDirection:"column", gap:10 }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                    <div>
+                      <span style={labelS}>📅 Ngày</span>
+                      <input type="date" value={newChiTieu.ngay} onChange={e=>setNewChiTieu(d=>({...d,ngay:e.target.value}))} style={inputS} />
+                    </div>
+                    <div>
+                      <span style={labelS}>💵 Số tiền (nghìn đ)</span>
+                      <input type="number" value={newChiTieu.sotien} onChange={e=>setNewChiTieu(d=>({...d,sotien:e.target.value}))} placeholder="VD: 50" style={inputS} min="0" />
+                    </div>
+                  </div>
+                  <div>
+                    <span style={labelS}>📝 Chi tiêu gì</span>
+                    <input value={newChiTieu.noidung} onChange={e=>setNewChiTieu(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addChiTieu();}} placeholder="VD: Ăn sáng, Cà phê, Siêu thị..." style={inputS} />
+                  </div>
+                  <div>
+                    <span style={labelS}>🏷 Danh mục</span>
+                    <select value={newChiTieu.danhmuc} onChange={e=>setNewChiTieu(d=>({...d,danhmuc:e.target.value}))} style={{ ...inputS, cursor:"pointer" }}>
+                      <option value="">-- Chọn danh mục --</option>
+                      {DANHMUC_GY.map(dm => <option key={dm} value={dm}>{dm}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={addChiTieu} style={{ flex:1, background:"#be185d", border:"none", borderRadius:8, color:"#fff", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:700 }}>💾 Lưu</button>
+                    <button onClick={()=>{setShowAddChiTieu(false);setNewChiTieu({ngay:today(),noidung:"",sotien:"",danhmuc:""}); }} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>Hủy</button>
+                  </div>
+                </div>
+              )}
+
+              {groupedDays.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"28px 0", color:"#d1d5db", fontSize:13 }}>Chưa có chi tiêu nào trong tháng này</div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {groupedDays.map(dayKey => {
+                    const dayTotal = grouped[dayKey].reduce((a,c)=>a+(parseFloat(c.sotien)||0),0);
+                    const d = new Date(dayKey+"T00:00:00");
+                    const dayLabel = `${DAYS_VN_FULL[d.getDay()]}, ${d.getDate()}/${d.getMonth()+1}`;
+                    return (
+                      <div key={dayKey}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5, padding:"0 2px" }}>
+                          <span style={{ fontSize:11, fontWeight:700, color:"#9ca3af", letterSpacing:".04em" }}>{dayLabel}</span>
+                          <span style={{ fontSize:12, fontWeight:700, color:"#be185d" }}>−{(dayTotal*1000).toLocaleString("vi-VN")}đ</span>
+                        </div>
+                        {grouped[dayKey].map(c => (
+                          <div key={c.id} style={{ background:"#fff", border:"1px solid #f3f4f6", borderRadius:9, padding:isMobile?"10px 12px":"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:5, boxShadow:"0 1px 3px rgba(0,0,0,.03)" }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:isMobile?14:13, fontWeight:600, color:"#111827", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.noidung}</div>
+                              {c.danhmuc && <div style={{ fontSize:11, color:"#9ca3af", marginTop:1 }}>{c.danhmuc}</div>}
+                            </div>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                              <span style={{ fontSize:isMobile?14:13, fontWeight:700, color:"#dc2626" }}>{((parseFloat(c.sotien)||0)*1000).toLocaleString("vi-VN")}đ</span>
+                              <button onClick={()=>deleteChiTieu(c.id)} style={{ color:"#e5e7eb", background:"none", border:"none", cursor:"pointer", padding:isMobile?4:2, display:"flex", alignItems:"center", minHeight:isMobile?36:"auto" }}>{IC.trash}</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {chiTieuFiltered.length > 0 && (
+                <div style={{ marginTop:12, background:"#fff0f6", borderRadius:8, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:"#be185d", fontWeight:600 }}>Tổng chi hằng ngày</span>
+                  <span style={{ fontSize:isMobile?17:16, fontWeight:800, color:"#be185d" }}>{fmtMoney(totalChiTieuHangNgay)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p style={{ marginTop:32, fontSize:11, color:"#d1d5db", textAlign:"center", letterSpacing:".03em", fontWeight:500 }}>Dữ liệu tự động đồng bộ qua đám mây ☁️</p>
+    </div>
+  );
+}
+
+
 /* ─── App ─── */
 function App() {
   const isMobile = useIsMobile();
   const [data, setData] = useState(() => loadData());
   const [schedule, setSchedule] = useState(() => loadSchedule());
+  const [soanBaiData, setSoanBaiData] = useState(() => loadSoanBai());
+  const [taiChinh, setTaiChinhState] = useState(() => loadTaiChinh());
+  const setTaiChinh = (updater) => {
+    setTaiChinhState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveTaiChinh(next);
+      return next;
+    });
+  };
   const [addingSubject, setAddingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem("studytodo_theme")||"indigo");
@@ -902,6 +1329,7 @@ function App() {
       const d = snap.data();
       if (d.monhoc) { const v = JSON.parse(d.monhoc); setData(v); saveData(v); }
       if (d.lichhoc) { const v = JSON.parse(d.lichhoc); setSchedule(v); saveSchedule(v); }
+      if (d.soanbai) { const v = JSON.parse(d.soanbai); setSoanBaiData(v); saveSoanBai(v); }
     });
     return () => unsub();
   }, [fbReady]);
@@ -909,6 +1337,7 @@ function App() {
   // Ghi lên Firebase + localStorage khi data thay đổi
   useEffect(() => { saveData(data); pushToFirebase("monhoc", data); }, [data]);
   useEffect(() => { saveSchedule(schedule); pushToFirebase("lichhoc", schedule); }, [schedule]);
+  useEffect(() => { saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
@@ -1004,7 +1433,9 @@ function App() {
       ) : activeTab==="lichhoc" ? (
         <CalendarPage theme={theme} isMobile={isMobile} schedule={schedule} onScheduleChange={setSchedule} />
       ) : activeTab==="soanbai" ? (
-        <SoanBaiPage theme={theme} isMobile={isMobile} />
+        <SoanBaiPage theme={theme} isMobile={isMobile} soanBaiData={soanBaiData} setSoanBaiData={setSoanBaiData} />
+      ) : activeTab==="taichinh" ? (
+        <TaiChinhPage theme={theme} isMobile={isMobile} taiChinh={taiChinh} setTaiChinh={setTaiChinh} soanBaiData={soanBaiData} />
       ) : (
         <PlaceholderPage tab={currentTabInfo} theme={theme} isMobile={isMobile} />
       )}
