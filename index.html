@@ -105,18 +105,9 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-
-  // Lấy hoặc tạo deviceId
-  let deviceId = localStorage.getItem("studytodo_uid");
-  if (!deviceId) {
-    deviceId = Math.random().toString(36).slice(2, 10);
-    localStorage.setItem("studytodo_uid", deviceId);
-  }
-
   // Expose ra window để React dùng
   window._db = db;
-  window._deviceId = deviceId;
-  window._fbDoc = (col) => doc(db, col, deviceId);
+  window._fbDoc = (col, uid) => doc(db, col, uid);
   window._onSnapshot = onSnapshot;
   window._setDoc = setDoc;
   window._fbReady = true;
@@ -127,143 +118,7 @@
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
-/* ─── Auth Hook ─── */
-function useAuth() {
-  const [user, setUser] = useState(undefined); // undefined = loading
-  useEffect(() => {
-    if (!window._onAuthStateChanged) {
-      const handler = () => {
-        if (window._onAuthStateChanged) {
-          const unsub = window._onAuthStateChanged((u) => setUser(u || null));
-          return () => unsub();
-        }
-      };
-      window.addEventListener("firebase-ready", handler);
-      return () => window.removeEventListener("firebase-ready", handler);
-    }
-    const unsub = window._onAuthStateChanged((u) => setUser(u || null));
-    return () => unsub();
-  }, []);
-  return user;
-}
-
-/* ─── AuthScreen ─── */
-function AuthScreen() {
-  const [mode, setMode] = useState("login"); // "login" | "register"
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [passConfirm, setPassConfirm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [showPass, setShowPass] = useState(false);
-
-  const isMobile = window.innerWidth < 500;
-
-  const errMap = (code) => {
-    const m = {
-      "auth/email-already-in-use": "Email này đã được đăng ký.",
-      "auth/invalid-email": "Email không hợp lệ.",
-      "auth/weak-password": "Mật khẩu quá yếu (ít nhất 6 ký tự).",
-      "auth/user-not-found": "Không tìm thấy tài khoản.",
-      "auth/wrong-password": "Sai mật khẩu.",
-      "auth/invalid-credential": "Email hoặc mật khẩu không đúng.",
-      "auth/too-many-requests": "Thử lại sau, quá nhiều lần đăng nhập.",
-    };
-    return m[code] || "Đã có lỗi xảy ra, thử lại.";
-  };
-
-  const handleSubmit = async () => {
-    setError("");
-    if (!email.trim() || !pass) { setError("Vui lòng nhập đầy đủ."); return; }
-    if (mode === "register" && pass !== passConfirm) { setError("Mật khẩu xác nhận không khớp."); return; }
-    if (mode === "register" && pass.length < 6) { setError("Mật khẩu ít nhất 6 ký tự."); return; }
-    setLoading(true);
-    try {
-      if (mode === "login") await window._signIn(email.trim(), pass);
-      else await window._createUser(email.trim(), pass);
-    } catch(e) {
-      setError(errMap(e.code));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const inputStyle = {
-    width:"100%", background:"#f9fafb", border:"1px solid #e5e7eb",
-    borderRadius:10, color:"#111827", fontSize:16, padding:"13px 16px",
-    outline:"none", fontFamily:"inherit", boxSizing:"border-box",
-  };
-
-  return (
-    <div style={{minHeight:"100vh",background:"#f8fafc",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"24px 20px",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
-      {/* Logo */}
-      <div style={{marginBottom:32,textAlign:"center"}}>
-        <div style={{fontSize:10,letterSpacing:".18em",color:"#9ca3af",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>TRACKER</div>
-        <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.03em",color:"#111827"}}>CANHAN</div>
-      </div>
-
-      <div style={{width:"100%",maxWidth:380,background:"#fff",borderRadius:20,padding:"28px 24px",boxShadow:"0 4px 24px rgba(0,0,0,.08)"}}>
-        {/* Tabs */}
-        <div style={{display:"flex",background:"#f3f4f6",borderRadius:10,padding:3,marginBottom:24,gap:3}}>
-          {["login","register"].map(m => (
-            <button key={m} onClick={()=>{setMode(m);setError("");}} style={{flex:1,padding:"9px 0",border:"none",borderRadius:8,fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:"pointer",background:mode===m?"#fff":"transparent",color:mode===m?"#111827":"#9ca3af",boxShadow:mode===m?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>
-              {m==="login"?"Đăng nhập":"Đăng ký"}
-            </button>
-          ))}
-        </div>
-
-        {/* Fields */}
-        <div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <div>
-            <label style={{fontSize:11,fontWeight:700,color:"#9ca3af",letterSpacing:".05em",textTransform:"uppercase",display:"block",marginBottom:6}}>Email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" style={inputStyle} autoComplete="email" />
-          </div>
-          <div>
-            <label style={{fontSize:11,fontWeight:700,color:"#9ca3af",letterSpacing:".05em",textTransform:"uppercase",display:"block",marginBottom:6}}>Mật khẩu</label>
-            <div style={{position:"relative"}}>
-              <input type={showPass?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" style={{...inputStyle,paddingRight:48}} onKeyDown={e=>e.key==="Enter"&&handleSubmit()} autoComplete={mode==="login"?"current-password":"new-password"} />
-              <button onClick={()=>setShowPass(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"#9ca3af",fontSize:13,padding:0,fontFamily:"inherit"}}>
-                {showPass?"ẩn":"hiện"}
-              </button>
-            </div>
-          </div>
-          {mode==="register" && (
-            <div>
-              <label style={{fontSize:11,fontWeight:700,color:"#9ca3af",letterSpacing:".05em",textTransform:"uppercase",display:"block",marginBottom:6}}>Xác nhận mật khẩu</label>
-              <input type={showPass?"text":"password"} value={passConfirm} onChange={e=>setPassConfirm(e.target.value)} placeholder="••••••••" style={inputStyle} onKeyDown={e=>e.key==="Enter"&&handleSubmit()} autoComplete="new-password" />
-            </div>
-          )}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div style={{marginTop:12,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#dc2626",fontWeight:500}}>
-            {error}
-          </div>
-        )}
-
-        {/* Submit */}
-        <button onClick={handleSubmit} disabled={loading} style={{marginTop:20,width:"100%",background:"#5c6bc0",border:"none",borderRadius:10,color:"#fff",fontSize:15,fontWeight:700,padding:"14px 0",cursor:loading?"not-allowed":"pointer",opacity:loading?0.7:1,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          {loading && <span style={{display:"inline-block",width:14,height:14,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
-          {loading ? "Đang xử lý..." : mode==="login" ? "Đăng nhập" : "Tạo tài khoản"}
-        </button>
-
-        <p style={{marginTop:16,textAlign:"center",fontSize:12,color:"#9ca3af"}}>
-          {mode==="login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
-          <button onClick={()=>{setMode(mode==="login"?"register":"login");setError("");}} style={{background:"none",border:"none",color:"#5c6bc0",fontWeight:700,cursor:"pointer",fontSize:12,fontFamily:"inherit",padding:0}}>
-            {mode==="login" ? "Đăng ký ngay" : "Đăng nhập"}
-          </button>
-        </p>
-      </div>
-
-      <p style={{marginTop:24,fontSize:11,color:"#d1d5db",fontWeight:500,letterSpacing:".06em"}}>
-        made by <span style={{fontWeight:700,color:"#9ca3af"}}>canhan</span>
-      </p>
-    </div>
-  );
-}
-
-
+/* ─── Utils ─── */
 function daysLeft(dateStr) {
   if (!dateStr) return null;
   const diff = new Date(dateStr) - new Date();
@@ -372,7 +227,7 @@ const IC = {
 const NAV_TABS = [
   { id:"monhoc",    label:"Môn học",       icon:"book"     },
   { id:"soanbai",  label:"Lớp dạy",       icon:"pen"      },
-  { id:"lichhoc",  label:"Lịch trình",    icon:"calendar" },
+  { id:"lichhoc",  label:"Lịch học",      icon:"calendar" },
   { id:"taichinh", label:"Tài chính",     icon:"wallet"   },
 ];
 
@@ -951,93 +806,739 @@ function DayScheduleSheet({ dateKey, onClose, theme, isMobile, schedule, onSched
   );
 }
 
-/* ─── CalendarPage ─── */
-function CalendarPage({ theme, isMobile, schedule, onScheduleChange }) {
+/* ─── LichHocPage ─── */
+const LICHHOC_KEY = "studytodo_lichhoc_v2";
+function loadLichHoc() {
+  try { const r = localStorage.getItem(LICHHOC_KEY); return r ? JSON.parse(r) : { subjects: [], semesterStart: "" }; }
+  catch { return { subjects: [], semesterStart: "" }; }
+}
+function saveLichHoc(d) { try { localStorage.setItem(LICHHOC_KEY, JSON.stringify(d)); } catch {} }
+
+// Tính số tuần của ngày d tính từ semesterStart (tuần 1 = tuần chứa ngày đầu HK)
+function getWeekNumber(dateStr, semesterStart) {
+  if (!semesterStart) return null;
+  const d = new Date(dateStr + "T00:00:00");
+  const s = new Date(semesterStart + "T00:00:00");
+  // Lùi về đầu tuần (Thứ 2) của semesterStart
+  const dow = s.getDay(); // 0=CN
+  const startMonday = new Date(s);
+  startMonday.setDate(s.getDate() - (dow === 0 ? 6 : dow - 1));
+  const diff = Math.floor((d - startMonday) / (7 * 86400000));
+  return diff >= 0 ? diff + 1 : null;
+}
+
+// Sinh ra các ngày học trong tháng dựa theo quy luật
+function generateDaysInMonth(rule, year, month, semesterStart) {
+  const days = [];
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  for (let d = 1; d <= lastDay; d++) {
+    const date = new Date(year, month, d);
+    if (date.getDay() !== rule.dayOfWeek) continue;
+    const dateStr = toDateKey(date);
+    if (!semesterStart) { days.push(dateStr); continue; }
+    const wn = getWeekNumber(dateStr, semesterStart);
+    if (wn === null) continue;
+    // weekFrom / weekTo range filter
+    const wf = rule.weekFrom ? parseInt(rule.weekFrom) : null;
+    const wt = rule.weekTo   ? parseInt(rule.weekTo)   : null;
+    if (wf !== null && wn < wf) continue;
+    if (wt !== null && wn > wt) continue;
+    const pat = rule.weekPattern;
+    if (pat === "all") { days.push(dateStr); }
+    else if (pat === "odd")  { if (wn % 2 === 1) days.push(dateStr); }
+    else if (pat === "even") { if (wn % 2 === 0) days.push(dateStr); }
+    else {
+      const allowed = pat.split(",").map(x => parseInt(x.trim()));
+      const mod4 = ((wn - 1) % 4) + 1;
+      if (allowed.includes(mod4)) days.push(dateStr);
+    }
+  }
+  return days;
+}
+
+const WEEK_PATTERNS = [
+  { value: "all",   label: "Mỗi tuần" },
+  { value: "odd",   label: "Tuần lẻ (1,3,5...)" },
+  { value: "even",  label: "Tuần chẵn (2,4,6...)" },
+  { value: "1,3",   label: "Tuần 1 & 3 / tháng" },
+  { value: "2,4",   label: "Tuần 2 & 4 / tháng" },
+  { value: "1",     label: "Tuần 1 / tháng" },
+  { value: "2",     label: "Tuần 2 / tháng" },
+  { value: "3",     label: "Tuần 3 / tháng" },
+  { value: "4",     label: "Tuần 4 / tháng" },
+];
+const BUOI_OPTIONS = [
+  { value: "sang",   label: "🌅 Sáng",   time: "07:00–11:30", color: "#f97316", bg: "#fff7ed", border: "#fed7aa" },
+  { value: "chieu",  label: "☀️ Chiều",  time: "13:30–17:30", color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0" },
+  { value: "toi",    label: "🌙 Tối",    time: "17:30–21:00", color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" },
+];
+const LOAI_OPTIONS = [
+  { value: "lt", label: "Lý thuyết", color: "#5c6bc0", bg: "#e8eaf6" },
+  { value: "th", label: "Thực hành", color: "#0891b2", bg: "#e0f2fe" },
+];
+const TIET_START = [
+  { tiet:1, time:"06:45" },{ tiet:2, time:"07:40" },{ tiet:3, time:"08:35" },
+  { tiet:4, time:"09:35" },{ tiet:5, time:"10:30" },{ tiet:6, time:"13:00" },
+  { tiet:7, time:"13:55" },{ tiet:8, time:"14:50" },
+];
+function tietEndTime(tietTo) {
+  const e = TIET_START.find(t => t.tiet === tietTo);
+  if (!e) return "";
+  const [eh,em] = e.time.split(":").map(Number);
+  const endMin = eh*60+em+50;
+  return String(Math.floor(endMin/60)).padStart(2,"0")+":"+String(endMin%60).padStart(2,"0");
+}
+const DOW_OPTIONS = [
+  { value: 1, label: "T2" }, { value: 2, label: "T3" }, { value: 3, label: "T4" },
+  { value: 4, label: "T5" }, { value: 5, label: "T6" }, { value: 6, label: "T7" },
+  { value: 0, label: "CN" },
+];
+
+function RuleForm({ rule, onChange, onDelete, theme, isMobile }) {
+  const inp = { background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:7, color:"#374151",
+    fontSize: isMobile?14:13, padding: isMobile?"9px 10px":"6px 10px", outline:"none",
+    fontFamily:"inherit", width:"100%", cursor:"pointer" };
+  const lbl = { fontSize:11, fontWeight:700, color:"#9ca3af", letterSpacing:".05em",
+    textTransform:"uppercase", marginBottom:4, display:"block" };
+  const upd = (k,v) => onChange({ ...rule, [k]: v });
+  const buoi = BUOI_OPTIONS.find(b => b.value === rule.buoi) || BUOI_OPTIONS[0];
+  const loai = LOAI_OPTIONS.find(l => l.value === rule.loai) || LOAI_OPTIONS[0];
+
+  // Khi chọn tiết, tự tính giờ
+  const handleTietFrom = (val) => {
+    const tf = val ? parseInt(val) : null;
+    const tt = rule.tietTo ? parseInt(rule.tietTo) : null;
+    const safeTo = tt && tf && tt >= tf ? tt : tf;
+    const s = tf ? TIET_START.find(t=>t.tiet===tf) : null;
+    const e = safeTo ? tietEndTime(safeTo) : "";
+    upd("tietFrom", val);
+    upd("tietTo", safeTo ? String(safeTo) : "");
+    if (s) onChange({ ...rule, tietFrom: val, tietTo: safeTo ? String(safeTo) : "", startTime: s.time, endTime: e });
+  };
+  const handleTietTo = (val) => {
+    const tf = rule.tietFrom ? parseInt(rule.tietFrom) : null;
+    const tt = val ? parseInt(val) : null;
+    const e = tt ? tietEndTime(tt) : "";
+    const s = tf ? TIET_START.find(t=>t.tiet===tf) : null;
+    onChange({ ...rule, tietTo: val, endTime: e, startTime: s ? s.time : rule.startTime });
+  };
+
+  return (
+    <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:12,
+      padding: isMobile?"12px":"10px 14px", marginBottom:10 }}>
+      {/* Row 1: Thứ + Buổi + Loại */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+        <div>
+          <span style={lbl}>Thứ</span>
+          <select value={rule.dayOfWeek} onChange={e=>upd("dayOfWeek",+e.target.value)} style={inp}>
+            {DOW_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={lbl}>Buổi</span>
+          <select value={rule.buoi} onChange={e=>upd("buoi",e.target.value)} style={inp}>
+            {BUOI_OPTIONS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={lbl}>Loại</span>
+          <select value={rule.loai} onChange={e=>upd("loai",e.target.value)} style={inp}>
+            {LOAI_OPTIONS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Row 2: Quy luật tuần + Phòng */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+        <div>
+          <span style={lbl}>Quy luật tuần</span>
+          <select value={rule.weekPattern} onChange={e=>upd("weekPattern",e.target.value)} style={inp}>
+            {WEEK_PATTERNS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={lbl}>Phòng học</span>
+          <input value={rule.room||""} onChange={e=>upd("room",e.target.value)}
+            placeholder="A101, Lab2..." style={inp} />
+        </div>
+      </div>
+
+      {/* Row 3: Từ tuần ... đến tuần ... */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:8 }}>
+        <div>
+          <span style={lbl}>Từ tuần HK</span>
+          <input type="number" min="1" max="52" value={rule.weekFrom||""} onChange={e=>upd("weekFrom",e.target.value)}
+            placeholder="VD: 1" style={inp} />
+        </div>
+        <div>
+          <span style={lbl}>Đến tuần HK</span>
+          <input type="number" min="1" max="52" value={rule.weekTo||""} onChange={e=>upd("weekTo",e.target.value)}
+            placeholder="VD: 15" style={inp} />
+        </div>
+      </div>
+
+      {/* Row 4: Tiết + Giờ */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+        <div>
+          <span style={lbl}>Từ tiết</span>
+          <select value={rule.tietFrom||""} onChange={e=>handleTietFrom(e.target.value)} style={inp}>
+            <option value="">--</option>
+            {TIET_START.map(t => <option key={t.tiet} value={String(t.tiet)}>Tiết {t.tiet} ({t.time})</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={lbl}>Đến tiết</span>
+          <select value={rule.tietTo||""} onChange={e=>handleTietTo(e.target.value)} style={inp}>
+            <option value="">--</option>
+            {TIET_START.filter(t=>!rule.tietFrom||t.tiet>=parseInt(rule.tietFrom)).map(t =>
+              <option key={t.tiet} value={String(t.tiet)}>Tiết {t.tiet}</option>)}
+          </select>
+        </div>
+        <div>
+          <span style={lbl}>Giờ bắt đầu</span>
+          <input type="time" value={rule.startTime||""} onChange={e=>upd("startTime",e.target.value)} style={inp} />
+        </div>
+        <div>
+          <span style={lbl}>Giờ kết thúc</span>
+          <input type="time" value={rule.endTime||""} onChange={e=>upd("endTime",e.target.value)} style={inp} />
+        </div>
+      </div>
+
+      {/* Ghi chú + tags + xóa */}
+      <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+        <div style={{ flex:1 }}>
+          <span style={lbl}>Ghi chú</span>
+          <input value={rule.note||""} onChange={e=>upd("note",e.target.value)}
+            placeholder="Ghi chú thêm..." style={inp} />
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0, paddingBottom:2 }}>
+          <span style={{ fontSize:11, fontWeight:700, background:buoi.bg,
+            color:buoi.color, border:`1px solid ${buoi.border}`, borderRadius:20,
+            padding:"3px 8px", whiteSpace:"nowrap" }}>{buoi.label}</span>
+          <span style={{ fontSize:11, fontWeight:700, background:loai.bg,
+            color:loai.color, borderRadius:20, padding:"3px 8px", whiteSpace:"nowrap" }}>{loai.label}</span>
+        </div>
+        <button onClick={onDelete} style={{ background:"none", border:"1px solid #fee2e2",
+          borderRadius:8, color:"#ef4444", padding: isMobile?"10px 12px":"7px 10px",
+          cursor:"pointer", display:"flex", alignItems:"center", flexShrink:0,
+          minHeight: isMobile?44:"auto" }}>{IC.trash}</button>
+      </div>
+    </div>
+  );
+}
+
+function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, semesterStart }) {
+  const { accent, accentLight, accentText, dot } = theme;
+  const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("rules"); // "rules" | "specific"
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewYear, setPreviewYear] = useState(() => new Date().getFullYear());
+  const [previewMonth, setPreviewMonth] = useState(() => new Date().getMonth());
+  // Form thêm lịch cụ thể
+  const [addingSpec, setAddingSpec] = useState(false);
+  const [specForm, setSpecForm] = useState({ date:"", buoi:"sang", loai:"lt", tietFrom:"", tietTo:"", startTime:"", endTime:"", room:"", note:"" });
+
+  const rules = subject.rules || [];
+  const specifics = subject.specifics || [];
+
+  const addRule = () => onUpdate({ ...subject, rules: [...rules, {
+    id: uid(), dayOfWeek: 1, weekPattern: "all", buoi: "sang",
+    loai: "lt", room: "", startTime: "", endTime: "", tietFrom:"", tietTo:"", weekFrom:"", weekTo:"", note: ""
+  }]});
+  const updateRule = (id, r) => onUpdate({ ...subject, rules: rules.map(x => x.id===id ? r : x) });
+  const deleteRule = (id) => onUpdate({ ...subject, rules: rules.filter(x => x.id!==id) });
+
+  const addSpecific = () => {
+    if (!specForm.date) return;
+    onUpdate({ ...subject, specifics: [...specifics, { id: uid(), ...specForm }] });
+    setSpecForm({ date:"", buoi:"sang", loai:"lt", tietFrom:"", tietTo:"", startTime:"", endTime:"", room:"", note:"" });
+    setAddingSpec(false);
+  };
+  const deleteSpecific = (id) => onUpdate({ ...subject, specifics: specifics.filter(x => x.id!==id) });
+
+  const inp = { background:"#fff", border:"1px solid #e5e7eb", borderRadius:7, color:"#374151",
+    fontSize: isMobile?14:13, padding: isMobile?"9px 10px":"6px 10px", outline:"none",
+    fontFamily:"inherit", width:"100%", cursor:"pointer" };
+  const lbl = { fontSize:11, fontWeight:700, color:"#9ca3af", letterSpacing:".05em",
+    textTransform:"uppercase", marginBottom:4, display:"block" };
+  const updSpec = (k,v) => setSpecForm(f=>({...f,[k]:v}));
+  const handleSpecTietFrom = (val) => {
+    const tf = val ? parseInt(val) : null;
+    const tt = specForm.tietTo ? parseInt(specForm.tietTo) : null;
+    const safeTo = tt && tf && tt >= tf ? tt : tf;
+    const s = tf ? TIET_START.find(t=>t.tiet===tf) : null;
+    const e = safeTo ? tietEndTime(safeTo) : "";
+    setSpecForm(f=>({...f, tietFrom:val, tietTo:safeTo?String(safeTo):"", startTime:s?s.time:f.startTime, endTime:e}));
+  };
+  const handleSpecTietTo = (val) => {
+    const e = val ? tietEndTime(parseInt(val)) : "";
+    setSpecForm(f=>({...f, tietTo:val, endTime:e}));
+  };
+
+  // Preview: generate rule days + specifics in previewMonth
+  const allPreviewDays = [];
+  if (showPreview) {
+    rules.forEach(rule => {
+      generateDaysInMonth(rule, previewYear, previewMonth, semesterStart).forEach(dateStr => {
+        const d = new Date(dateStr + "T00:00:00");
+        const loai = LOAI_OPTIONS.find(l=>l.value===rule.loai)||LOAI_OPTIONS[0];
+        const buoi = BUOI_OPTIONS.find(b=>b.value===rule.buoi)||BUOI_OPTIONS[0];
+        const wn = semesterStart ? getWeekNumber(dateStr, semesterStart) : null;
+        allPreviewDays.push({ dateStr, dayNum:d.getDate(), dow:d.getDay(), loai, buoi, wn,
+          tietFrom:rule.tietFrom, tietTo:rule.tietTo, startTime:rule.startTime,
+          endTime:rule.endTime, room:rule.room, note:rule.note, isSpecific:false });
+      });
+    });
+    specifics.forEach(sp => {
+      if (!sp.date) return;
+      const d = new Date(sp.date + "T00:00:00");
+      if (d.getFullYear()!==previewYear || d.getMonth()!==previewMonth) return;
+      const loai = LOAI_OPTIONS.find(l=>l.value===sp.loai)||LOAI_OPTIONS[0];
+      const buoi = BUOI_OPTIONS.find(b=>b.value===sp.buoi)||BUOI_OPTIONS[0];
+      const wn = semesterStart ? getWeekNumber(sp.date, semesterStart) : null;
+      allPreviewDays.push({ dateStr:sp.date, dayNum:d.getDate(), dow:d.getDay(), loai, buoi, wn,
+        tietFrom:sp.tietFrom, tietTo:sp.tietTo, startTime:sp.startTime,
+        endTime:sp.endTime, room:sp.room, note:sp.note, isSpecific:true });
+    });
+    allPreviewDays.sort((a,b)=>a.dateStr.localeCompare(b.dateStr));
+  }
+
+  const prevPM = () => { if(previewMonth===0){setPreviewMonth(11);setPreviewYear(y=>y-1);}else setPreviewMonth(m=>m-1); };
+  const nextPM = () => { if(previewMonth===11){setPreviewMonth(0);setPreviewYear(y=>y+1);}else setPreviewMonth(m=>m+1); };
+
+  const hasAny = rules.length > 0 || specifics.length > 0;
+
+  return (
+    <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius: isMobile?14:12,
+      overflow:"hidden", marginBottom: isMobile?12:10, boxShadow:"0 1px 6px rgba(0,0,0,.05)" }}>
+      <div style={{ height:3, background:`linear-gradient(90deg,${accent},${accent}55)` }} />
+      {/* Header */}
+      <div style={{ padding: isMobile?"14px 16px":"13px 16px", display:"flex", alignItems:"center", gap: isMobile?10:8 }}>
+        <button onClick={()=>setOpen(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer",
+          color:"#d1d5db", display:"flex", padding: isMobile?6:2, minWidth: isMobile?40:28,
+          minHeight: isMobile?44:"auto", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          {IC.chevron(open)}
+        </button>
+        <span style={{ color:accent, flexShrink:0 }}>{IC.calendar}</span>
+        <div style={{ flex:1, minWidth:0 }}>
+          <EditableText value={subject.name}
+            onSave={n => onUpdate({ ...subject, name: n })} isMobile={isMobile}
+            style={{ fontSize: isMobile?17:15, fontWeight:700, color:"#111827", letterSpacing:"-.01em" }}
+            placeholder="Tên môn học" />
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          {rules.length > 0 && (
+            <span style={{ fontSize:11, fontWeight:700, background:accentLight, color:accentText,
+              borderRadius:20, padding:"2px 8px", flexShrink:0 }}>{rules.length} QL</span>
+          )}
+          {specifics.length > 0 && (
+            <span style={{ fontSize:11, fontWeight:700, background:"#fef3c7", color:"#b45309",
+              borderRadius:20, padding:"2px 8px", flexShrink:0 }}>{specifics.length} cụ thể</span>
+          )}
+          <button onClick={onDelete} style={{ color:"#e5e7eb", background:"none", border:"none",
+            cursor:"pointer", display:"flex", padding: isMobile?6:4, minWidth: isMobile?40:28,
+            minHeight: isMobile?44:"auto", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            {IC.trash}
+          </button>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ padding: isMobile?"0 14px 16px":"0 16px 14px" }}>
+          <div style={{ height:1, background:"#f3f4f6", marginBottom:10 }} />
+
+          {/* Sub-tabs */}
+          <div style={{ display:"flex", gap:4, marginBottom:12, background:"#f9fafb",
+            borderRadius:9, padding:3 }}>
+            {[["rules","📋 Quy luật"],["specific","📌 Lịch cụ thể"]].map(([k,label])=>(
+              <button key={k} onClick={()=>setActiveTab(k)} style={{
+                flex:1, padding: isMobile?"9px 8px":"7px 8px",
+                background: activeTab===k?"#fff":"transparent",
+                border:"none", borderRadius:7,
+                color: activeTab===k?accentText:"#9ca3af",
+                fontSize: isMobile?13:12, fontWeight:700, cursor:"pointer",
+                boxShadow: activeTab===k?"0 1px 4px rgba(0,0,0,.08)":"none",
+                transition:"all .15s" }}>{label}</button>
+            ))}
+          </div>
+
+          {/* ── TAB: Quy luật ── */}
+          {activeTab==="rules" && (
+            <div>
+              {rules.length === 0 && (
+                <div style={{ textAlign:"center", padding:"14px 0 10px", color:"#d1d5db", fontSize:13 }}>
+                  Chưa có quy luật nào
+                </div>
+              )}
+              {rules.map(rule => (
+                <RuleForm key={rule.id} rule={rule} theme={theme} isMobile={isMobile}
+                  onChange={r => updateRule(rule.id, r)}
+                  onDelete={() => deleteRule(rule.id)} />
+              ))}
+              <button onClick={addRule} style={{ display:"flex", alignItems:"center", gap:6,
+                width:"100%", background:"none", border:`1.5px dashed ${dot}`, borderRadius:10,
+                color:"#9ca3af", fontSize: isMobile?14:13, padding: isMobile?"12px 14px":"9px 12px",
+                cursor:"pointer", fontWeight:500, minHeight: isMobile?48:"auto", marginTop:4 }}>
+                {IC.plus} Thêm quy luật
+              </button>
+            </div>
+          )}
+
+          {/* ── TAB: Lịch cụ thể ── */}
+          {activeTab==="specific" && (
+            <div>
+              {specifics.length === 0 && !addingSpec && (
+                <div style={{ textAlign:"center", padding:"14px 0 10px", color:"#d1d5db", fontSize:13 }}>
+                  Chưa có buổi học cụ thể nào
+                </div>
+              )}
+              {/* List */}
+              <div style={{ display:"flex", flexDirection:"column", gap:7, marginBottom:8 }}>
+                {[...specifics].sort((a,b)=>a.date.localeCompare(b.date)).map(sp => {
+                  const loai = LOAI_OPTIONS.find(l=>l.value===sp.loai)||LOAI_OPTIONS[0];
+                  const buoi = BUOI_OPTIONS.find(b=>b.value===sp.buoi)||BUOI_OPTIONS[0];
+                  const d = new Date(sp.date+"T00:00:00");
+                  const isT = sp.date === today();
+                  return (
+                    <div key={sp.id} style={{ display:"flex", alignItems:"center", gap:8,
+                      background: isT?accentLight:buoi.bg,
+                      border:`1px solid ${isT?accent+"55":buoi.border}`,
+                      borderRadius:9, padding: isMobile?"9px 12px":"7px 12px" }}>
+                      <div style={{ width:36, textAlign:"center", flexShrink:0 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:buoi.color, textTransform:"uppercase" }}>
+                          {["CN","T2","T3","T4","T5","T6","T7"][d.getDay()]}
+                        </div>
+                        <div style={{ fontSize:16, fontWeight:800, color: isT?accent:d.getDay()===0?"#dc2626":"#111827" }}>
+                          {d.getDate()}
+                        </div>
+                        <div style={{ fontSize:9, color:"#9ca3af" }}>{d.getMonth()+1}/{d.getFullYear().toString().slice(2)}</div>
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:2 }}>
+                          <span style={{ fontSize:11, fontWeight:700, background:loai.bg,
+                            color:loai.color, borderRadius:20, padding:"2px 7px" }}>{loai.label}</span>
+                          <span style={{ fontSize:11, fontWeight:700, background:"#fff",
+                            color:buoi.color, border:`1px solid ${buoi.border}`, borderRadius:20, padding:"2px 7px" }}>
+                            {buoi.label}
+                          </span>
+                          {sp.tietFrom && <span style={{ fontSize:11, color:"#6b7280" }}>
+                            Tiết {sp.tietFrom}{sp.tietTo&&sp.tietTo!==sp.tietFrom?`-${sp.tietTo}`:""}
+                          </span>}
+                        </div>
+                        <div style={{ fontSize:11, color:"#6b7280" }}>
+                          {sp.startTime&&sp.endTime?`${sp.startTime}–${sp.endTime}`:""}
+                          {sp.room?` · ${sp.room}`:""}
+                          {sp.note?` · ${sp.note}`:""}
+                        </div>
+                      </div>
+                      {isT && <span style={{ fontSize:10, fontWeight:700, background:accent,
+                        color:"#fff", borderRadius:20, padding:"2px 7px", flexShrink:0 }}>Hôm nay</span>}
+                      <button onClick={()=>deleteSpecific(sp.id)} style={{ color:"#d1d5db",
+                        background:"none", border:"none", cursor:"pointer", padding:4,
+                        display:"flex", minHeight: isMobile?36:"auto", alignItems:"center", flexShrink:0 }}>
+                        {IC.trash}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add form */}
+              {addingSpec ? (
+                <div style={{ background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:12,
+                  padding: isMobile?"12px":"10px 14px" }}>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+                    <div>
+                      <span style={lbl}>Ngày học</span>
+                      <input type="date" value={specForm.date} onChange={e=>updSpec("date",e.target.value)} style={inp} />
+                    </div>
+                    <div>
+                      <span style={lbl}>Buổi</span>
+                      <select value={specForm.buoi} onChange={e=>updSpec("buoi",e.target.value)} style={inp}>
+                        {BUOI_OPTIONS.map(b=><option key={b.value} value={b.value}>{b.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <span style={lbl}>Loại</span>
+                      <select value={specForm.loai} onChange={e=>updSpec("loai",e.target.value)} style={inp}>
+                        {LOAI_OPTIONS.map(l=><option key={l.value} value={l.value}>{l.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+                    <div>
+                      <span style={lbl}>Từ tiết</span>
+                      <select value={specForm.tietFrom||""} onChange={e=>handleSpecTietFrom(e.target.value)} style={inp}>
+                        <option value="">--</option>
+                        {TIET_START.map(t=><option key={t.tiet} value={String(t.tiet)}>Tiết {t.tiet} ({t.time})</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <span style={lbl}>Đến tiết</span>
+                      <select value={specForm.tietTo||""} onChange={e=>handleSpecTietTo(e.target.value)} style={inp}>
+                        <option value="">--</option>
+                        {TIET_START.filter(t=>!specForm.tietFrom||t.tiet>=parseInt(specForm.tietFrom)).map(t=>
+                          <option key={t.tiet} value={String(t.tiet)}>Tiết {t.tiet}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <span style={lbl}>Giờ bắt đầu</span>
+                      <input type="time" value={specForm.startTime||""} onChange={e=>updSpec("startTime",e.target.value)} style={inp} />
+                    </div>
+                    <div>
+                      <span style={lbl}>Giờ kết thúc</span>
+                      <input type="time" value={specForm.endTime||""} onChange={e=>updSpec("endTime",e.target.value)} style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                    <div>
+                      <span style={lbl}>Phòng học</span>
+                      <input value={specForm.room||""} onChange={e=>updSpec("room",e.target.value)}
+                        placeholder="A101..." style={inp} />
+                    </div>
+                    <div>
+                      <span style={lbl}>Ghi chú</span>
+                      <input value={specForm.note||""} onChange={e=>updSpec("note",e.target.value)}
+                        placeholder="Ghi chú..." style={inp} />
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={addSpecific} style={{ background:accent, border:"none",
+                      borderRadius:9, color:"#fff", fontSize: isMobile?14:13,
+                      padding: isMobile?"11px 18px":"8px 16px", cursor:"pointer", fontWeight:700 }}>
+                      Thêm buổi
+                    </button>
+                    <button onClick={()=>setAddingSpec(false)} style={{ background:"none", border:"none",
+                      color:"#9ca3af", fontSize: isMobile?14:13, cursor:"pointer" }}>Hủy</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={()=>setAddingSpec(true)} style={{ display:"flex", alignItems:"center",
+                  gap:6, width:"100%", background:"none", border:`1.5px dashed ${dot}`,
+                  borderRadius:10, color:"#9ca3af", fontSize: isMobile?14:13,
+                  padding: isMobile?"12px 14px":"9px 12px", cursor:"pointer",
+                  fontWeight:500, minHeight: isMobile?48:"auto" }}>
+                  {IC.plus} Thêm buổi cụ thể
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Preview toggle */}
+          {hasAny && (
+            <div style={{ marginTop:10 }}>
+              <button onClick={()=>setShowPreview(v=>!v)} style={{ display:"flex", alignItems:"center",
+                gap:5, width:"100%", justifyContent:"center",
+                background: showPreview?accentLight:"#f9fafb",
+                border:`1px solid ${showPreview?accent+"55":"#e5e7eb"}`,
+                borderRadius:10, color: showPreview?accentText:"#9ca3af",
+                fontSize: isMobile?13:12, padding: isMobile?"10px":"7px 12px",
+                cursor:"pointer", fontWeight:700 }}>
+                {IC.calendar} {showPreview?"Ẩn lịch xem trước":"Xem lịch tháng"}
+              </button>
+            </div>
+          )}
+
+          {/* Preview */}
+          {showPreview && hasAny && (
+            <div style={{ marginTop:10, background:"#f9fafb", borderRadius:12,
+              border:"1px solid #e5e7eb", padding: isMobile?"12px":"12px 14px" }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                <button onClick={prevPM} style={{ background:"none", border:"1px solid #e5e7eb",
+                  borderRadius:7, padding:"6px 8px", cursor:"pointer", color:"#6b7280",
+                  display:"flex", alignItems:"center" }}>{IC.arrowLeft}</button>
+                <span style={{ fontSize:14, fontWeight:800, color:"#111827" }}>
+                  {MONTHS_VN[previewMonth]} {previewYear}
+                </span>
+                <button onClick={nextPM} style={{ background:"none", border:"1px solid #e5e7eb",
+                  borderRadius:7, padding:"6px 8px", cursor:"pointer", color:"#6b7280",
+                  display:"flex", alignItems:"center" }}>{IC.arrowRight}</button>
+              </div>
+              {allPreviewDays.length === 0 ? (
+                <div style={{ textAlign:"center", color:"#d1d5db", fontSize:13, padding:"14px 0" }}>
+                  Không có buổi học nào trong tháng này
+                </div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {allPreviewDays.map((pd, i) => {
+                    const isT = pd.dateStr === today();
+                    return (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:8,
+                        background: isT?accentLight:"#fff",
+                        border:`1px solid ${isT?accent+"55":"#e5e7eb"}`,
+                        borderRadius:9, padding: isMobile?"8px 12px":"6px 12px" }}>
+                        {pd.isSpecific && (
+                          <span style={{ fontSize:9, fontWeight:800, background:"#fef3c7",
+                            color:"#b45309", borderRadius:4, padding:"1px 4px", flexShrink:0 }}>📌</span>
+                        )}
+                        <div style={{ width:32, textAlign:"center", flexShrink:0 }}>
+                          <div style={{ fontSize:9, fontWeight:700, color:"#9ca3af", textTransform:"uppercase" }}>
+                            {["CN","T2","T3","T4","T5","T6","T7"][pd.dow]}
+                          </div>
+                          <div style={{ fontSize:15, fontWeight:800,
+                            color: isT?accent:pd.dow===0?"#dc2626":"#111827" }}>{pd.dayNum}</div>
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:4, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:11, fontWeight:700, background:pd.loai.bg,
+                              color:pd.loai.color, borderRadius:20, padding:"2px 7px" }}>{pd.loai.label}</span>
+                            <span style={{ fontSize:11, fontWeight:700, background:pd.buoi.bg,
+                              color:pd.buoi.color, border:`1px solid ${pd.buoi.border}`, borderRadius:20, padding:"2px 7px" }}>
+                              {pd.buoi.label}
+                            </span>
+                            {pd.tietFrom && <span style={{ fontSize:11, color:"#6b7280" }}>
+                              Tiết {pd.tietFrom}{pd.tietTo&&pd.tietTo!==pd.tietFrom?`-${pd.tietTo}`:""}
+                            </span>}
+                            {pd.wn && <span style={{ fontSize:10, color:"#9ca3af", fontWeight:600 }}>T{pd.wn}</span>}
+                          </div>
+                          <div style={{ fontSize:11, color:"#6b7280", marginTop:1 }}>
+                            {pd.startTime&&pd.endTime?`${pd.startTime}–${pd.endTime}`:""}
+                            {pd.room?` · ${pd.room}`:""}
+                            {pd.note?` · ${pd.note}`:""}
+                          </div>
+                        </div>
+                        {isT && <span style={{ fontSize:10, fontWeight:700, background:accent,
+                          color:"#fff", borderRadius:20, padding:"2px 7px", flexShrink:0 }}>Hôm nay</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+/* ─── LichHocMonthView ─── */
+function LichHocMonthView({ lichHocData, theme, isMobile }) {
+  const { accent, accentLight, accentText } = theme;
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
-  const { accent, accentLight, accentText } = theme;
-  const todayKey = today();
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y=>y-1); } else setMonth(m=>m-1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y=>y+1); } else setMonth(m=>m+1); };
+  const prevM = () => { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
+  const nextM = () => { if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
 
-  // Build calendar grid (Mon-start)
+  const semStart = lichHocData.semesterStart || "";
+  // Build map: dateStr -> list of sessions (rules + specifics)
+  const sessionMap = {};
+  (lichHocData.subjects || []).forEach(subj => {
+    (subj.rules || []).forEach(rule => {
+      generateDaysInMonth(rule, year, month, semStart).forEach(dateStr => {
+        if (!sessionMap[dateStr]) sessionMap[dateStr] = [];
+        const loai = LOAI_OPTIONS.find(l=>l.value===rule.loai)||LOAI_OPTIONS[0];
+        const buoi = BUOI_OPTIONS.find(b=>b.value===rule.buoi)||BUOI_OPTIONS[0];
+        sessionMap[dateStr].push({ subjName: subj.name, rule, loai, buoi, isSpecific:false });
+      });
+    });
+    (subj.specifics || []).forEach(sp => {
+      if (!sp.date) return;
+      const d = new Date(sp.date+"T00:00:00");
+      if (d.getFullYear()!==year || d.getMonth()!==month) return;
+      if (!sessionMap[sp.date]) sessionMap[sp.date] = [];
+      const loai = LOAI_OPTIONS.find(l=>l.value===sp.loai)||LOAI_OPTIONS[0];
+      const buoi = BUOI_OPTIONS.find(b=>b.value===sp.buoi)||BUOI_OPTIONS[0];
+      sessionMap[sp.date].push({ subjName: subj.name, rule: sp, loai, buoi, isSpecific:true });
+    });
+  });
+
   const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month+1, 0);
-  // Monday-based: Mon=0 ... Sun=6
+  const lastDay = new Date(year, month + 1, 0);
   let startDow = firstDay.getDay() - 1; if (startDow < 0) startDow = 6;
-  const totalCells = startDow + lastDay.getDate();
-  const weeks = Math.ceil(totalCells / 7);
+  const weeks = Math.ceil((startDow + lastDay.getDate()) / 7);
   const cells = [];
   for (let i = 0; i < weeks * 7; i++) {
     const dayNum = i - startDow + 1;
     if (dayNum < 1 || dayNum > lastDay.getDate()) { cells.push(null); continue; }
     const d = new Date(year, month, dayNum);
     const key = toDateKey(d);
-    const isPast = false;
-    const isToday = key === todayKey;
-    const hasData = schedule[key] && Object.values(schedule[key]).some(v => v && v.trim());
-    cells.push({ dayNum, key, isPast, isToday, hasData, dow: d.getDay() });
+    const isToday = key === today();
+    const sessions = sessionMap[key] || [];
+    cells.push({ dayNum, key, isToday, sessions, dow: d.getDay() });
   }
 
   const DAY_HEADERS = ["T2","T3","T4","T5","T6","T7","CN"];
+  const selectedSessions = selectedDay ? (sessionMap[selectedDay] || []) : [];
+  const selDate = selectedDay ? new Date(selectedDay + "T00:00:00") : null;
 
   return (
-    <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",padding:isMobile?"16px 12px 80px":"24px 28px 80px"}}>
+    <div>
       {/* Month nav */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:isMobile?16:20}}>
-        <button onClick={prevMonth} style={{background:"none",border:"1px solid #e5e7eb",borderRadius:9,padding:isMobile?"10px 12px":"7px 10px",cursor:"pointer",color:"#6b7280",display:"flex",alignItems:"center",minHeight:isMobile?44:"auto"}}>{IC.arrowLeft}</button>
-        <div style={{textAlign:"center"}}>
-          <div style={{fontSize:isMobile?19:17,fontWeight:800,color:"#111827",letterSpacing:"-.02em"}}>{MONTHS_VN[month]} {year}</div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <button onClick={prevM} style={{ background:"none", border:"1px solid #e5e7eb",
+          borderRadius:9, padding: isMobile?"10px 12px":"7px 10px", cursor:"pointer",
+          color:"#6b7280", display:"flex", alignItems:"center", minHeight: isMobile?44:"auto" }}>
+          {IC.arrowLeft}
+        </button>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize: isMobile?17:16, fontWeight:800, color:"#111827" }}>
+            {MONTHS_VN[month]} {year}
+          </div>
+          {semStart && (
+            <div style={{ fontSize:11, color:"#9ca3af", marginTop:2 }}>
+              Đầu HK: {semStart.split("-").reverse().join("/")}
+            </div>
+          )}
         </div>
-        <button onClick={nextMonth} style={{background:"none",border:"1px solid #e5e7eb",borderRadius:9,padding:isMobile?"10px 12px":"7px 10px",cursor:"pointer",color:"#6b7280",display:"flex",alignItems:"center",minHeight:isMobile?44:"auto"}}>{IC.arrowRight}</button>
+        <button onClick={nextM} style={{ background:"none", border:"1px solid #e5e7eb",
+          borderRadius:9, padding: isMobile?"10px 12px":"7px 10px", cursor:"pointer",
+          color:"#6b7280", display:"flex", alignItems:"center", minHeight: isMobile?44:"auto" }}>
+          {IC.arrowRight}
+        </button>
       </div>
 
-      {/* Calendar grid */}
-      <div style={{background:"#fff",borderRadius:isMobile?16:14,border:"1px solid #e5e7eb",overflow:"hidden",boxShadow:"0 1px 8px rgba(0,0,0,.05)"}}>
-        {/* Day headers */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:`2px solid ${accent}`,background:accentLight}}>
+      {/* Grid */}
+      <div style={{ background:"#fff", borderRadius: isMobile?14:12, border:"1px solid #e5e7eb",
+        overflow:"hidden", boxShadow:"0 1px 8px rgba(0,0,0,.05)" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)",
+          borderBottom:`2px solid ${accent}`, background:accentLight }}>
           {DAY_HEADERS.map((h,i) => (
-            <div key={h} style={{textAlign:"center",padding:isMobile?"8px 2px":"9px 2px",fontSize:isMobile?11:11,fontWeight:700,letterSpacing:".06em",color:i===6?"#dc2626":accentText}}>
-              {h}
-            </div>
+            <div key={h} style={{ textAlign:"center", padding: isMobile?"8px 2px":"8px 2px",
+              fontSize:11, fontWeight:700, letterSpacing:".06em",
+              color: i===6?"#dc2626":accentText }}>{h}</div>
           ))}
         </div>
-        {/* Weeks */}
         {Array.from({length:weeks}).map((_,wi) => (
-          <div key={wi} style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",borderBottom:wi<weeks-1?"1px solid #f3f4f6":"none"}}>
+          <div key={wi} style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)",
+            borderBottom: wi<weeks-1?"1px solid #f3f4f6":"none" }}>
             {cells.slice(wi*7, wi*7+7).map((cell, ci) => {
-              if (!cell) return <div key={ci} style={{minHeight:isMobile?52:56}} />;
+              if (!cell) return <div key={ci} style={{ minHeight: isMobile?52:56 }} />;
+              const isSel = cell.key === selectedDay;
               const isSun = cell.dow === 0;
-              const isTodayCell = cell.isToday;
-              const canClick = !cell.isPast || cell.isToday;
               return (
-                <button key={ci} onClick={() => canClick && setSelectedDay(cell.key)}
-                  style={{
-                    minHeight:isMobile?52:56, border:"none", background:"transparent",
-                    cursor:"pointer",
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    gap:4, padding:4, borderLeft:ci>0?"1px solid #f9fafb":"none",
-                    transition:"background .1s",
-                    ...(canClick && !isTodayCell ? {":hover":{background:accentLight}} : {}),
-                  }}
-                  onMouseEnter={e => { if(canClick && !isTodayCell) e.currentTarget.style.background=accentLight; }}
-                  onMouseLeave={e => { if(canClick && !isTodayCell) e.currentTarget.style.background="transparent"; }}
+                <button key={ci} onClick={() => setSelectedDay(isSel ? null : cell.key)}
+                  style={{ minHeight: isMobile?56:60, border:"none",
+                    background: isSel ? accentLight : "transparent",
+                    cursor:"pointer", display:"flex", flexDirection:"column",
+                    alignItems:"center", padding:"4px 2px",
+                    borderLeft: ci>0?"1px solid #f9fafb":"none",
+                    transition:"background .1s" }}
+                  onMouseEnter={e=>{ if(!isSel&&!cell.isToday) e.currentTarget.style.background="#f8fafc"; }}
+                  onMouseLeave={e=>{ if(!isSel&&!cell.isToday) e.currentTarget.style.background="transparent"; }}
                 >
-                  <div style={{
-                    width:isMobile?32:30, height:isMobile?32:30, borderRadius:"50%",
+                  <div style={{ width: isMobile?28:26, height: isMobile?28:26, borderRadius:"50%",
                     display:"flex", alignItems:"center", justifyContent:"center",
-                    background:isTodayCell?accent:"transparent",
-                    fontSize:isMobile?15:14, fontWeight:isTodayCell?800:600,
-                    color:isTodayCell?"#fff":isSun?"#dc2626":"#111827",
-                  }}>
+                    background: cell.isToday ? accent : "transparent",
+                    fontSize: isMobile?13:12, fontWeight: cell.isToday?800:600,
+                    color: cell.isToday?"#fff" : isSun?"#dc2626":"#111827" }}>
                     {cell.dayNum}
                   </div>
-                  {cell.hasData && (
-                    <div style={{display:"flex",gap:2}}>
-                      <span style={{width:5,height:5,borderRadius:"50%",background:accent}} />
+                  {/* Dots for sessions */}
+                  {cell.sessions.length > 0 && (
+                    <div style={{ display:"flex", gap:2, flexWrap:"wrap",
+                      justifyContent:"center", marginTop:2, maxWidth:28 }}>
+                      {cell.sessions.slice(0,3).map((s,i) => (
+                        <span key={i} style={{ width:5, height:5, borderRadius:"50%",
+                          background: s.loai.color, flexShrink:0 }} />
+                      ))}
+                      {cell.sessions.length > 3 && (
+                        <span style={{ fontSize:8, color:"#9ca3af", lineHeight:1 }}>
+                          +{cell.sessions.length-3}
+                        </span>
+                      )}
                     </div>
                   )}
                 </button>
@@ -1048,30 +1549,211 @@ function CalendarPage({ theme, isMobile, schedule, onScheduleChange }) {
       </div>
 
       {/* Legend */}
-      <div style={{marginTop:16,display:"flex",gap:16,flexWrap:"wrap",justifyContent:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#9ca3af"}}>
-          <span style={{width:16,height:16,borderRadius:"50%",background:accent,display:"inline-block"}} />
+      <div style={{ marginTop:10, display:"flex", gap:12, flexWrap:"wrap", justifyContent:"center" }}>
+        {LOAI_OPTIONS.map(l => (
+          <div key={l.value} style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"#9ca3af" }}>
+            <span style={{ width:8, height:8, borderRadius:"50%", background:l.color }} />
+            {l.label}
+          </div>
+        ))}
+        <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"#9ca3af" }}>
+          <span style={{ width:14, height:14, borderRadius:"50%", background:accent, display:"inline-block" }} />
           Hôm nay
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#9ca3af"}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:accent,display:"inline-block"}} />
-          Có lịch
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#d1d5db"}}>
-          <span style={{fontSize:13,fontWeight:600}}>15</span>
-          Ngày đã qua
         </div>
       </div>
 
+      {/* Selected day detail */}
       {selectedDay && (
-        <DayScheduleSheet
-          dateKey={selectedDay}
-          onClose={() => setSelectedDay(null)}
-          theme={theme}
-          isMobile={isMobile}
-          schedule={schedule}
-          onScheduleChange={onScheduleChange}
-        />
+        <div style={{ marginTop:14, background:"#fff", border:`1.5px solid ${accent}44`,
+          borderRadius:12, padding: isMobile?"14px 16px":"12px 16px",
+          boxShadow:"0 2px 12px rgba(0,0,0,.06)" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+            <div style={{ fontSize:14, fontWeight:800, color:"#111827" }}>
+              📅 {DAYS_VN_FULL[selDate.getDay()]}, {selDate.getDate()} tháng {selDate.getMonth()+1}
+              {semStart && (() => {
+                const wn = getWeekNumber(selectedDay, semStart);
+                return wn ? <span style={{ fontSize:11, fontWeight:600, color:"#9ca3af",
+                  marginLeft:8 }}>· Tuần {wn} HK</span> : null;
+              })()}
+            </div>
+            <button onClick={()=>setSelectedDay(null)} style={{ background:"#f3f4f6", border:"none",
+              borderRadius:8, padding:"6px 8px", cursor:"pointer", color:"#6b7280",
+              display:"flex", alignItems:"center" }}>{IC.x}</button>
+          </div>
+          {selectedSessions.length === 0 ? (
+            <div style={{ fontSize:13, color:"#d1d5db", textAlign:"center", padding:"10px 0" }}>
+              Không có buổi học
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {selectedSessions.map((s, i) => {
+                const buoi = s.buoi || BUOI_OPTIONS.find(b=>b.value===s.rule.buoi)||BUOI_OPTIONS[0];
+                const loai = s.loai || LOAI_OPTIONS.find(l=>l.value===s.rule.loai)||LOAI_OPTIONS[0];
+                return (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:10,
+                    background: buoi.bg, border:`1px solid ${buoi.border}`,
+                    borderRadius:10, padding: isMobile?"10px 12px":"8px 12px" }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:3 }}>
+                        <span style={{ fontSize: isMobile?14:13, fontWeight:700, color:"#111827" }}>{s.subjName}</span>
+                        {s.isSpecific && <span style={{ fontSize:10, fontWeight:800, background:"#fef3c7",
+                          color:"#b45309", borderRadius:4, padding:"1px 5px" }}>📌 Cụ thể</span>}
+                      </div>
+                      <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
+                        <span style={{ fontSize:11, fontWeight:700, background:loai.bg,
+                          color:loai.color, borderRadius:20, padding:"2px 8px" }}>{loai.label}</span>
+                        <span style={{ fontSize:11, fontWeight:700, background:"#fff",
+                          color:buoi.color, border:`1px solid ${buoi.border}`,
+                          borderRadius:20, padding:"2px 8px" }}>{buoi.label}</span>
+                        {s.rule.tietFrom && <span style={{ fontSize:11, color:"#6b7280", alignSelf:"center" }}>
+                          Tiết {s.rule.tietFrom}{s.rule.tietTo&&s.rule.tietTo!==s.rule.tietFrom?`-${s.rule.tietTo}`:""}
+                        </span>}
+                        <span style={{ fontSize:11, color:"#6b7280", alignSelf:"center" }}>
+                          {s.rule.startTime && s.rule.endTime
+                            ? `${s.rule.startTime}–${s.rule.endTime}`
+                            : buoi.time}
+                        </span>
+                      </div>
+                      {(s.rule.room || s.rule.note) && (
+                        <div style={{ fontSize:11, color:"#9ca3af", marginTop:3 }}>
+                          {s.rule.room && `📍 ${s.rule.room}`}
+                          {s.rule.room && s.rule.note && " · "}
+                          {s.rule.note}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── CalendarPage → LichHocPage ─── */
+function CalendarPage({ theme, isMobile, schedule, onScheduleChange }) {
+  const [lichHocData, setLichHocDataState] = useState(() => loadLichHoc());
+  const setLichHocData = (updater) => {
+    setLichHocDataState(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveLichHoc(next);
+      return next;
+    });
+  };
+
+  const { accent, accentLight, accentText, dot } = theme;
+  const [activeSection, setActiveSection] = useState("calendar");
+  const [addingSubject, setAddingSubject] = useState(false);
+  const [newName, setNewName] = useState("");
+  const bottomPad = isMobile ? "calc(24px + env(safe-area-inset-bottom))" : "80px";
+
+  const addSubject = () => {
+    if (!newName.trim()) return;
+    setLichHocData(d => ({ ...d, subjects: [...(d.subjects||[]),
+      { id: uid(), name: newName.trim(), rules: [] }] }));
+    setNewName(""); setAddingSubject(false);
+  };
+  const updateSubject = (id, u) => setLichHocData(d => ({
+    ...d, subjects: d.subjects.map(s => s.id===id ? u : s)
+  }));
+  const deleteSubject = (id) => setLichHocData(d => ({
+    ...d, subjects: d.subjects.filter(s => s.id!==id)
+  }));
+
+  const subjects = lichHocData.subjects || [];
+  const semStart = lichHocData.semesterStart || "";
+
+  return (
+    <div style={{ maxWidth: isMobile?"100%":720, margin:"0 auto",
+      padding: isMobile?`16px 16px ${bottomPad}`:"24px 28px 80px" }}>
+
+      {/* Section tabs */}
+      <div style={{ display:"flex", gap:4, marginBottom:16, background:"#fff",
+        borderRadius:12, padding:4, border:"1px solid #e5e7eb",
+        boxShadow:"0 1px 4px rgba(0,0,0,.04)" }}>
+        {[
+          ["calendar", IC.calendar, "Lịch tháng"],
+          ["manage",   IC.book,     "Quản lý môn"],
+        ].map(([k, icon, label]) => (
+          <button key={k} onClick={()=>setActiveSection(k)} style={{
+            flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+            padding: isMobile?"11px 8px":"8px 10px",
+            background: activeSection===k ? accentLight : "transparent",
+            border:"none", borderRadius:9,
+            color: activeSection===k ? accentText : "#9ca3af",
+            fontSize: isMobile?13:12, fontWeight:700, cursor:"pointer",
+            transition:"background .15s, color .15s" }}>
+            <span style={{ color: activeSection===k ? accent : "#d1d5db" }}>{icon}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Semester start (shown on both sections) */}
+      <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:10,
+        padding: isMobile?"12px 14px":"10px 14px", marginBottom:14,
+        display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <span style={{ fontSize:11, fontWeight:700, color:"#9ca3af",
+          textTransform:"uppercase", letterSpacing:".06em", flexShrink:0 }}>
+          📆 Đầu học kỳ
+        </span>
+        <input type="date" value={semStart}
+          onChange={e => setLichHocData(d => ({ ...d, semesterStart: e.target.value }))}
+          style={{ background:"none", border:"none", borderBottom:"1px solid #e5e7eb",
+            color:"#374151", fontSize: isMobile?15:13, outline:"none", cursor:"pointer",
+            minHeight: isMobile?36:"auto" }} />
+        <span style={{ fontSize:11, color:"#d1d5db", flex:1 }}>
+          {semStart ? `→ Dùng để tính số tuần HK (tuần lẻ/chẵn)` : "Nhập để nhận diện tuần HK"}
+        </span>
+      </div>
+
+      {activeSection === "calendar" ? (
+        <LichHocMonthView lichHocData={lichHocData} theme={theme} isMobile={isMobile} />
+      ) : (
+        <div>
+          {subjects.length === 0 && !addingSubject && (
+            <div style={{ textAlign:"center", padding:"60px 0", color:"#d1d5db" }}>
+              <div style={{ fontSize:44, marginBottom:14 }}>📅</div>
+              <div style={{ fontSize: isMobile?15:13, fontWeight:500 }}>Chưa có môn học nào</div>
+            </div>
+          )}
+          {subjects.map(s => (
+            <LichHocSubjectCard key={s.id} subject={s} theme={theme} isMobile={isMobile}
+              semesterStart={semStart}
+              onUpdate={u => updateSubject(s.id, u)}
+              onDelete={() => deleteSubject(s.id)} />
+          ))}
+          {addingSubject ? (
+            <div style={{ display:"flex", gap:8, marginTop:10 }}>
+              <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
+                onKeyDown={e=>{if(e.key==="Enter")addSubject();if(e.key==="Escape"){setAddingSubject(false);setNewName("");}}}
+                placeholder="Tên môn học..." style={{ flex:1, background:"#fff",
+                  border:"1px solid #e5e7eb", borderRadius:10, color:"#111827",
+                  fontSize: isMobile?16:14, padding: isMobile?"13px 16px":"10px 14px",
+                  outline:"none", boxShadow:"0 1px 4px rgba(0,0,0,.06)" }} />
+              <button onClick={addSubject} style={{ background:accent, border:"none",
+                borderRadius:10, color:"#fff", fontSize: isMobile?15:13,
+                padding: isMobile?"13px 20px":"10px 18px", cursor:"pointer",
+                fontWeight:700, flexShrink:0 }}>Thêm</button>
+              <button onClick={()=>{setAddingSubject(false);setNewName("");}} style={{
+                background:"none", border:"none", color:"#9ca3af",
+                fontSize: isMobile?15:13, cursor:"pointer", flexShrink:0 }}>Hủy</button>
+            </div>
+          ) : (
+            <button onClick={()=>setAddingSubject(true)} style={{ display:"flex",
+              alignItems:"center", gap:8, width:"100%", background:"none",
+              border:`1.5px dashed ${dot}`, borderRadius: isMobile?14:12,
+              color:"#9ca3af", fontSize: isMobile?15:13,
+              padding: isMobile?"16px 18px":"14px 16px",
+              cursor:"pointer", marginTop:6, fontWeight:500,
+              minHeight: isMobile?56:"auto" }}>
+              {IC.plus} Thêm môn học
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
