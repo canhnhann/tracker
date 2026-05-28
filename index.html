@@ -248,8 +248,8 @@ const DAYS_VN_FULL = ["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ N
 const MONTHS_VN = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
 
 const TIME_SLOTS = [
-  { id:"s2", label:"Buổi sáng", time:"07:00 – 11:30", period:"morning"   },
-  { id:"s4", label:"Buổi chiều",time:"13:30 – 17:30", period:"afternoon" },
+  { id:"s2", label:"Buổi sáng", time:"07:00 – 10:50", period:"morning"   },
+  { id:"s4", label:"Buổi chiều",time:"13:30 – 17:20", period:"afternoon" },
   { id:"s5", label:"Buổi tối",  time:"17:30 – 23:00", period:"evening"   },
 ];
 
@@ -1156,8 +1156,8 @@ const WEEK_PATTERNS = [
   { value: "4",     label: "Tuần 4 / tháng" },
 ];
 const BUOI_OPTIONS = [
-  { value: "sang",   label: "🌅 Sáng",   time: "07:00–11:30", color: "#f97316", bg: "#fff7ed", border: "#fed7aa" },
-  { value: "chieu",  label: "☀️ Chiều",  time: "13:30–17:30", color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0" },
+  { value: "sang",   label: "🌅 Sáng",   time: "07:00–10:50", color: "#f97316", bg: "#fff7ed", border: "#fed7aa" },
+  { value: "chieu",  label: "☀️ Chiều",  time: "13:30–17:20", color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0" },
   { value: "toi",    label: "🌙 Tối",    time: "17:30–21:00", color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe" },
 ];
 const LOAI_OPTIONS = [
@@ -1165,9 +1165,9 @@ const LOAI_OPTIONS = [
   { value: "th", label: "Thực hành", color: "#0891b2", bg: "#e0f2fe" },
 ];
 const TIET_START = [
-  { tiet:1, time:"06:45" },{ tiet:2, time:"07:40" },{ tiet:3, time:"08:35" },
-  { tiet:4, time:"09:35" },{ tiet:5, time:"10:30" },{ tiet:6, time:"13:00" },
-  { tiet:7, time:"13:55" },{ tiet:8, time:"14:50" },
+  { tiet:1, time:"07:00" },{ tiet:2, time:"08:00" },{ tiet:3, time:"09:00" },
+  { tiet:4, time:"10:00" },{ tiet:5, time:"13:30" },{ tiet:6, time:"14:30" },
+  { tiet:7, time:"15:30" },{ tiet:8, time:"16:30" },
 ];
 function tietEndTime(tietTo) {
   const e = TIET_START.find(t => t.tiet === tietTo);
