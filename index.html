@@ -74,16 +74,23 @@
 </div>
 
 <script>
-  // Ẩn splash sau 1.4s (đủ cho React + Firebase khởi động)
+  // Ẩn splash khi React đã mount xong (hoặc tối đa 6s)
+  var splashHidden = false;
+  function hideSplash() {
+    if (splashHidden) return;
+    splashHidden = true;
+    var s = document.getElementById("splash");
+    if (s) {
+      s.classList.add("hide");
+      setTimeout(function(){ s.style.display="none"; }, 420);
+    }
+  }
+  // Fallback: tối đa 6 giây
   window.addEventListener("load", function() {
-    setTimeout(function() {
-      var s = document.getElementById("splash");
-      if (s) {
-        s.classList.add("hide");
-        setTimeout(function(){ s.style.display="none"; }, 420);
-      }
-    }, 1400);
+    setTimeout(hideSplash, 6000);
   });
+  // Signal from React khi app đã mount
+  window._appReady = function() { hideSplash(); };
 </script>
 
 <div id="app"></div>
@@ -2321,6 +2328,29 @@ function LichThiPanel({ subjects, theme, isMobile, onClose }) {
 }
 
 /* ─── App ─── */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  componentDidCatch(e, info) { console.error("App crash:", e, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{padding:32,textAlign:"center",fontFamily:"sans-serif"}}>
+          <div style={{fontSize:32,marginBottom:12}}>⚠️</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#dc2626",marginBottom:8}}>Ứng dụng gặp lỗi</div>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:16,maxWidth:300,margin:"0 auto 16px"}}>
+            {String(this.state.error)}
+          </div>
+          <button onClick={()=>window.location.reload()} style={{background:"#5c6bc0",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontWeight:700}}>
+            Tải lại trang
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
   const isMobile = useIsMobile();
   const [data, setData] = useState(() => loadData());
@@ -2348,6 +2378,9 @@ function App() {
   const { fbReady, syncing, syncOk, pushToFirebase } = useFirebaseSync();
 
   // Lắng nghe realtime từ Firebase
+  // Signal splash to hide
+  useEffect(() => { if (window._appReady) window._appReady(); }, []);
+
   useEffect(() => {
     if (!fbReady || !window._onSnapshot || !window._fbDoc) return;
     const unsub = window._onSnapshot(window._fbDoc("studytodo"), (snap) => {
@@ -2481,7 +2514,7 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+ReactDOM.createRoot(document.getElementById("app")).render(<ErrorBoundary><App /></ErrorBoundary>);
 </script>
 </body>
 </html>
