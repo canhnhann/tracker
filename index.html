@@ -1836,9 +1836,16 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
               color: i===6?"#dc2626":accentText }}>{h}</div>
           ))}
         </div>
-        {Array.from({length:weeks}).map((_,wi) => (
+        {Array.from({length:weeks}).map((_,wi) => {
+          // Check if any cell in this week row is today
+          const weekCells = cells.slice(wi*7, wi*7+7).filter(Boolean);
+          const isCurrentWeek = weekCells.some(c => c.isToday);
+          return (
           <div key={wi} style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)",
-            borderBottom: wi<weeks-1?"1px solid #f3f4f6":"none" }}>
+            borderBottom: wi<weeks-1?"1px solid #f3f4f6":"none",
+            boxShadow: isCurrentWeek ? `inset 2px 0 0 ${accent}, inset -2px 0 0 ${accent}, inset 0 2px 0 ${accent}, inset 0 -2px 0 ${accent}` : "none",
+            background: isCurrentWeek ? `${accent}07` : "transparent",
+            transition:"background .2s" }}>
             {cells.slice(wi*7, wi*7+7).map((cell, ci) => {
               if (!cell) return <div key={ci} style={{ minHeight: isMobile?52:56 }} />;
               const isSel = cell.key === selectedDay;
@@ -1922,7 +1929,8 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Legend – click để lọc */}
