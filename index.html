@@ -2078,15 +2078,9 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
 }
 
 /* ─── CalendarPage → LichHocPage ─── */
-function CalendarPage({ theme, isMobile, schedule, onScheduleChange, subjects, soanBaiData }) {
-  const [lichHocData, setLichHocDataState] = useState(() => loadLichHoc());
-  const setLichHocData = (updater) => {
-    setLichHocDataState(prev => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      saveLichHoc(next);
-      return next;
-    });
-  };
+function CalendarPage({ theme, isMobile, schedule, onScheduleChange, subjects, soanBaiData, lichHocData, onLichHocChange }) {
+  // lichHocData is now managed by App for cross-device sync
+  const setLichHocData = onLichHocChange;
 
   const { accent, accentLight, accentText, dot } = theme;
   const [activeSection, setActiveSection] = useState("calendar");
@@ -3159,6 +3153,14 @@ function App() {
   const [schedule, setSchedule] = useState(() => loadSchedule());
   const [soanBaiData, setSoanBaiData] = useState(() => loadSoanBai());
   const [taiChinh, setTaiChinhState] = useState(() => loadTaiChinh());
+  const [lichHocData, setLichHocDataState] = useState(() => loadLichHoc());
+  const setLichHocData = (updater) => {
+    setLichHocDataState(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveLichHoc(next);
+      return next;
+    });
+  };
   const setTaiChinh = (updater) => {
     setTaiChinhState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
@@ -3204,6 +3206,7 @@ function App() {
       if (d.lichhoc) { try { const v = JSON.parse(d.lichhoc); setSchedule(v || {}); saveSchedule(v || {}); } catch {} }
       if (d.soanbai) { try { const v = JSON.parse(d.soanbai); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setSoanBaiData(safe); saveSoanBai(safe); } catch {} }
       if (d.taichinh) { try { const v = JSON.parse(d.taichinh); const safe = { dichLam: v?.dichLam||0, chiCungXang: v?.chiCungXang||0, chiCungTietKiem: v?.chiCungTietKiem||0, chiTieuHangNgay: Array.isArray(v?.chiTieuHangNgay)?v.chiTieuHangNgay:[], chiCungList: Array.isArray(v?.chiCungList)?v.chiCungList:[], thuNhapList: Array.isArray(v?.thuNhapList)?v.thuNhapList:[] }; setTaiChinhState(safe); saveTaiChinh(safe); } catch {} }
+      if (d.thoikhoa) { try { const v = JSON.parse(d.thoikhoa); const safe = { subjects: Array.isArray(v?.subjects)?v.subjects:[], semesterStart: v?.semesterStart||"" }; setLichHocDataState(safe); saveLichHoc(safe); } catch {} }
       // Tắt cờ sau khi React xử lý xong state (nextTick)
       setTimeout(() => { isRemoteUpdate.current = false; isFirstLoad.current = false; }, 0);
     });
@@ -3220,6 +3223,7 @@ function App() {
   useEffect(() => { if (!isMounted.current) return; saveSchedule(schedule); pushToFirebase("lichhoc", schedule); }, [schedule]);
   useEffect(() => { if (!isMounted.current) return; saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { if (!isMounted.current) return; saveTaiChinh(taiChinh); pushToFirebase("taichinh", taiChinh); }, [taiChinh]);
+  useEffect(() => { if (!isMounted.current) return; saveLichHoc(lichHocData); pushToFirebase("thoikhoa", lichHocData); }, [lichHocData]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
@@ -3322,7 +3326,7 @@ function App() {
 
         </div>
       ) : activeTab==="lichhoc" ? (
-        <CalendarPage theme={theme} isMobile={isMobile} schedule={schedule} onScheduleChange={setSchedule} subjects={data.subjects} soanBaiData={soanBaiData} />
+        <CalendarPage theme={theme} isMobile={isMobile} schedule={schedule} onScheduleChange={setSchedule} subjects={data.subjects} soanBaiData={soanBaiData} lichHocData={lichHocData} onLichHocChange={setLichHocData} />
       ) : activeTab==="soanbai" ? (
         <SoanBaiPage theme={theme} isMobile={isMobile} soanBaiData={soanBaiData} setSoanBaiData={setSoanBaiData} />
       ) : activeTab==="taichinh" ? (
