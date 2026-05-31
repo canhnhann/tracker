@@ -256,6 +256,7 @@ const NAV_TABS = [
   { id:"soanbai",  label:"Lớp dạy",       icon:"pen"      },
   { id:"lichhoc",  label:"Lịch trình",    icon:"calendar" },
   { id:"taichinh", label:"Tài chính",     icon:"wallet"   },
+  { id:"widget",   label:"Widget iOS",    icon:"chart"    },
 ];
 
 const DAYS_VN = ["CN","T2","T3","T4","T5","T6","T7"];
@@ -289,6 +290,1202 @@ function NavBar({ activeTab, onTabChange, theme, isMobile }) {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+
+/* ─── WidgetPage ─── */
+function WidgetPage({ theme, isMobile, data, taiChinh, lichHocData, schedule, soanBaiData }) {
+  const { accent, accentLight, accentText } = theme;
+  const [step, setStep] = React.useState(0);
+  const [copied, setCopied] = React.useState(false);
+  const [widgetType, setWidgetType] = React.useState("study"); // "study" | "today"
+  const [widgetSize, setWidgetSize] = React.useState("small");
+  const [widgetTheme, setWidgetTheme] = React.useState("dark");
+  const syncId = localStorage.getItem("studytodo_uid") || "";
+
+  // ── Tính dữ liệu học tập ──
+  const todayDate = new Date();
+  const upcoming = (data?.subjects || [])
+    .filter(s => s.examDate)
+    .sort((a, b) => new Date(a.examDate) - new Date(b.examDate))
+    .slice(0, 3);
+
+  const progress = (() => {
+    const total = (data?.subjects || []).reduce((a, s) => a + (s.lessons?.length || 0), 0);
+    const done = (data?.subjects || []).reduce((a, s) => a + (s.lessons?.filter(l => l.done).length || 0), 0);
+    return total > 0 ? Math.round((done / total) * 100) : 0;
+  })();
+
+  // ── Tính lịch trình hôm nay (từ 3 nguồn) ──
+  const todayKey = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  })();
+  const todayDow = new Date().getDay(); // 0=CN,1=T2,...,6=T7
+
+  // Nguồn 1: schedule (lịch tay theo ngày)
+  const scheduleToday = schedule?.[todayKey] || {};
+  const scheduleEvents = [];
+  const TIME_SLOTS_MAP = { s2:{label:"Sáng",time:"07:00–10:50",period:"morning"}, s4:{label:"Chiều",time:"13:30–17:20",period:"afternoon"}, s5:{label:"Tối",time:"17:30–23:00",period:"evening"} };
+  Object.entries(scheduleToday).forEach(([slotId, text]) => {
+    if (text && text.trim()) {
+      const slot = TIME_SLOTS_MAP[slotId];
+      if (slot) scheduleEvents.push({ source:"schedule", slotId, label:slot.label, time:slot.time, text:text.trim(), period:slot.period, sortKey: slotId==="s2"?7:slotId==="s4"?13:17 });
+    }
+  });
+
+  // Nguồn 2: lichHocData (lịch học theo quy luật + cụ thể)
+  const lichHocEvents = [];
+  const DOW_LABEL = {0:"CN",1:"T2",2:"T3",3:"T4",4:"T5",5:"T6",6:"T7"};
+  const BUOI_TIME = { sang:"07:00–10:50", chieu:"13:30–17:20", toi:"17:30–21:00" };
+  const BUOI_SORT = { sang:7, chieu:13, toi:17 };
+  const semStart = lichHocData?.semesterStart || "";
+
+  (lichHocData?.subjects || []).forEach(subj => {
+    // rules
+    (subj.rules || []).forEach(rule => {
+      if (rule.dayOfWeek !== todayDow) return;
+      // check week pattern
+      let matches = true;
+      if (semStart) {
+        const s = new Date(semStart+"T00:00:00");
+        let startMon = new Date(s);
+        startMon.setDate(s.getDate() - ((s.getDay()+6)%7));
+        const todayD = new Date(todayKey+"T00:00:00");
+        let todayMon = new Date(todayD);
+        todayMon.setDate(todayD.getDate() - ((todayD.getDay()+6)%7));
+        const wn = Math.round((todayMon - startMon)/(7*86400000)) + 1;
+        if (wn < 1) matches = false;
+        else {
+          const wf = rule.weekFrom ? parseInt(rule.weekFrom) : null;
+          const wt = rule.weekTo ? parseInt(rule.weekTo) : null;
+          if (wf && wn < wf) matches = false;
+          if (wt && wn > wt) matches = false;
+          if (matches && rule.weekPattern) {
+            const pat = rule.weekPattern;
+            if (pat==="odd" && wn%2===0) matches=false;
+            else if (pat==="even" && wn%2===1) matches=false;
+            else if (pat!=="all" && pat!=="odd" && pat!=="even") {
+              const allowed = pat.split(",").map(x=>parseInt(x.trim()));
+              const mod4 = ((wn-1)%4)+1;
+              if (!allowed.includes(mod4)) matches=false;
+            }
+          }
+        }
+      }
+      if (!matches) return;
+      const buoiOpt = { sang:{label:"Sáng",color:"#f97316"}, chieu:{label:"Chiều",color:"#22c55e"}, toi:{label:"Tối",color:"#3b82f6"} };
+      const b = buoiOpt[rule.buoi] || buoiOpt.sang;
+      const loaiLabel = rule.loai==="th"?"Thực hành":"Lý thuyết";
+      const timeStr = rule.tietFrom ? `Tiết ${rule.tietFrom}${rule.tietTo?`–${rule.tietTo}`:""}` : (BUOI_TIME[rule.buoi]||"");
+      lichHocEvents.push({ source:"hoc", name:subj.name, buoi:b.label, color:b.color, loai:loaiLabel, time:timeStr, room:rule.room||"", sortKey:BUOI_SORT[rule.buoi]||7 });
+    });
+    // specifics
+    (subj.specifics || []).forEach(sp => {
+      if (sp.date !== todayKey) return;
+      const b = { sang:{label:"Sáng",color:"#f97316"}, chieu:{label:"Chiều",color:"#22c55e"}, toi:{label:"Tối",color:"#3b82f6"} }[sp.buoi] || {label:"Sáng",color:"#f97316"};
+      const loaiLabel = sp.loai==="th"?"Thực hành":"Lý thuyết";
+      const timeStr = sp.tietFrom ? `Tiết ${sp.tietFrom}${sp.tietTo?`–${sp.tietTo}`:""}` : (BUOI_TIME[sp.buoi]||"");
+      lichHocEvents.push({ source:"hoc", name:subj.name, buoi:b.label, color:b.color, loai:loaiLabel, time:timeStr, room:sp.room||"", sortKey:BUOI_SORT[sp.buoi]||7 });
+    });
+  });
+
+  // Nguồn 3: soanBaiData (lịch dạy theo thứ)
+  const dayTeachLabel = {1:"Thứ 2",2:"Thứ 3",3:"Thứ 4",4:"Thứ 5",5:"Thứ 6",6:"Thứ 7",0:"Chủ Nhật"};
+  const teachEvents = [];
+  (soanBaiData?.subjects || []).forEach(subj => {
+    (subj.scheduleRows || []).forEach(row => {
+      if (!row.day) return;
+      const DOW_MAP_VN = {"Thứ 2":1,"Thứ 3":2,"Thứ 4":3,"Thứ 5":4,"Thứ 6":5,"Thứ 7":6,"Chủ Nhật":0};
+      if (DOW_MAP_VN[row.day] !== todayDow) return;
+      const startH = row.startTime ? parseInt(row.startTime.split(":")[0]) : 8;
+      teachEvents.push({ source:"day", name:subj.name, time:`${row.startTime||""}${row.endTime?"–"+row.endTime:""}`, room:row.room||"", note:row.note||"", sortKey:startH });
+    });
+  });
+
+  // Gộp & sắp xếp
+  const allTodayEvents = [
+    ...scheduleEvents.map(e=>({...e, typeLabel:"Lịch trình", typeColor:"#8b5cf6"})),
+    ...lichHocEvents.map(e=>({...e, typeLabel:"Học", typeColor:e.color})),
+    ...teachEvents.map(e=>({...e, typeLabel:"Dạy", typeColor:"#f59e0b"})),
+  ].sort((a,b)=>(a.sortKey||0)-(b.sortKey||0));
+
+  // ── Generate Scriptable script ──
+  const generateScript = () => {
+    const bg = widgetTheme==="dark" ? "#1a1a2e" : "#ffffff";
+    const textColor = widgetTheme==="dark" ? "#ffffff" : "#111827";
+    const subColor = widgetTheme==="dark" ? "#a0aec0" : "#6b7280";
+    const cardBg = widgetTheme==="dark" ? "#16213e" : "#f8fafc";
+    const borderColor = widgetTheme==="dark" ? "#0f3460" : "#e5e7eb";
+
+    if (widgetType === "today") {
+      // Lịch trình hôm nay widget
+      if (widgetSize === "small") {
+        return `// StudyTodo – Lịch Hôm Nay (Small)
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    return (await req.loadJSON()).fields || {};
+  } catch(e) { return null; }
+}
+
+function todayKey() {
+  const d = new Date();
+  return \`\${d.getFullYear()}-\${String(d.getMonth()+1).padStart(2,"0")}-\${String(d.getDate()).padStart(2,"0")}\`;
+}
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(14, 14, 14, 14);
+
+// Header
+const hRow = w.addStack();
+hRow.layoutHorizontally();
+hRow.centerAlignContent();
+const ic = hRow.addText("📅");
+ic.font = Font.systemFont(16);
+hRow.addSpacer();
+const dow = ["CN","T2","T3","T4","T5","T6","T7"][new Date().getDay()];
+const dayTxt = hRow.addText(dow);
+dayTxt.font = Font.boldSystemFont(11);
+dayTxt.textColor = new Color(ACCENT);
+
+w.addSpacer(6);
+
+const d = await getData();
+let events = [];
+if (d?.lichtrinhhomnay) {
+  try { events = JSON.parse(d.lichtrinhhomnay.stringValue || "[]"); } catch {}
+}
+// Fallback: show today from schedule
+let count = events.length;
+
+const dateTxt = w.addText(new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"}));
+dateTxt.font = Font.boldSystemFont(20);
+dateTxt.textColor = new Color(TEXT);
+
+w.addSpacer(2);
+
+const sub = w.addText(count > 0 ? \`\${count} sự kiện hôm nay\` : "Không có lịch");
+sub.font = Font.systemFont(11);
+sub.textColor = new Color(SUB);
+
+w.addSpacer(8);
+
+if (events.length > 0) {
+  const ev = events[0];
+  const evTxt = w.addText(\`• \${ev.name || ev.text || "Sự kiện"}\`);
+  evTxt.font = Font.mediumSystemFont(11);
+  evTxt.textColor = new Color(ACCENT);
+  evTxt.lineLimit = 1;
+  if (ev.time) {
+    const timeTxt = w.addText(ev.time);
+    timeTxt.font = Font.systemFont(10);
+    timeTxt.textColor = new Color(SUB);
+  }
+} else {
+  const freeTxt = w.addText("✅ Hôm nay rảnh");
+  freeTxt.font = Font.systemFont(11);
+  freeTxt.textColor = new Color(SUB);
+}
+
+Script.setWidget(w);
+Script.complete();`;
+      } else if (widgetSize === "medium") {
+        return `// StudyTodo – Lịch Hôm Nay (Medium)
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+const CARD_BG = "${cardBg}";
+const BORDER = "${borderColor}";
+const BUOI_COLORS = { sang:"#f97316", chieu:"#22c55e", toi:"#3b82f6", day:"#f59e0b", schedule:"#8b5cf6" };
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    return (await req.loadJSON()).fields || {};
+  } catch(e) { return null; }
+}
+
+function todayKey() {
+  const d = new Date();
+  return \`\${d.getFullYear()}-\${String(d.getMonth()+1).padStart(2,"0")}-\${String(d.getDate()).padStart(2,"0")}\`;
+}
+
+function todayDow() { return new Date().getDay(); }
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(14, 16, 14, 16);
+
+const DOW_FULL = ["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"];
+const dateStr = new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"});
+
+// Header
+const hRow = w.addStack();
+hRow.layoutHorizontally();
+hRow.centerAlignContent();
+const ttl = hRow.addText(\`📅  \${DOW_FULL[todayDow()]}\`);
+ttl.font = Font.boldSystemFont(12);
+ttl.textColor = new Color(ACCENT);
+hRow.addSpacer();
+const dateTxtH = hRow.addText(dateStr);
+dateTxtH.font = Font.systemFont(11);
+dateTxtH.textColor = new Color(SUB);
+
+w.addSpacer(8);
+
+// Fetch & parse data
+const d = await getData();
+const events = [];
+const todayK = todayKey();
+const dow = todayDow();
+
+// Schedule (lịch tay)
+if (d?.lichhoc) {
+  try {
+    const sched = JSON.parse(d.lichhoc.stringValue || "{}");
+    const dayData = sched[todayK] || {};
+    const SLOTS = { s2:{label:"Sáng",time:"07:00–10:50",sk:7}, s4:{label:"Chiều",time:"13:30–17:20",sk:13}, s5:{label:"Tối",time:"17:30–23:00",sk:17} };
+    Object.entries(dayData).forEach(([sid,txt]) => {
+      if (!txt?.trim()) return;
+      const sl = SLOTS[sid];
+      if (sl) events.push({ name: sl.label, text: txt.trim().split("\\n")[0], time: sl.time, color: "#8b5cf6", sk: sl.sk });
+    });
+  } catch {}
+}
+
+// Lịch học (lichHocData)
+if (d?.thoikhoa) {
+  try {
+    const lh = JSON.parse(d.thoikhoa.stringValue || "{}");
+    const semStart = lh.semesterStart || "";
+    const BCOLORS = { sang:"#f97316", chieu:"#22c55e", toi:"#3b82f6" };
+    const BSK = { sang:7, chieu:13, toi:17 };
+    (lh.subjects || []).forEach(subj => {
+      (subj.rules || []).forEach(rule => {
+        if (rule.dayOfWeek !== dow) return;
+        let ok = true;
+        if (semStart) {
+          const s = new Date(semStart+"T00:00:00");
+          let sm = new Date(s); sm.setDate(s.getDate()-((s.getDay()+6)%7));
+          const td = new Date(todayK+"T00:00:00");
+          let tm = new Date(td); tm.setDate(td.getDate()-((td.getDay()+6)%7));
+          const wn = Math.round((tm-sm)/(7*86400000))+1;
+          if (wn<1) ok=false;
+          else {
+            const wf=rule.weekFrom?parseInt(rule.weekFrom):null,wt=rule.weekTo?parseInt(rule.weekTo):null;
+            if (wf&&wn<wf) ok=false; if (wt&&wn>wt) ok=false;
+            if (ok&&rule.weekPattern) {
+              const p=rule.weekPattern;
+              if (p==="odd"&&wn%2===0) ok=false;
+              else if (p==="even"&&wn%2===1) ok=false;
+              else if (p!=="all"&&p!=="odd"&&p!=="even") {
+                const al=p.split(",").map(x=>parseInt(x));
+                if (!al.includes(((wn-1)%4)+1)) ok=false;
+              }
+            }
+          }
+        }
+        if (!ok) return;
+        const timeStr = rule.tietFrom ? \`Tiết \${rule.tietFrom}\${rule.tietTo?"–"+rule.tietTo:""}\` : "";
+        events.push({ name:subj.name, text:rule.loai==="th"?"Thực hành":"Lý thuyết", time:timeStr||(rule.buoi==="chieu"?"13:30–17:20":rule.buoi==="toi"?"17:30–21:00":"07:00–10:50"), color:BCOLORS[rule.buoi]||"#f97316", sk:BSK[rule.buoi]||7, room:rule.room||"" });
+      });
+      (subj.specifics || []).forEach(sp => {
+        if (sp.date!==todayK) return;
+        const BCOLORS2={sang:"#f97316",chieu:"#22c55e",toi:"#3b82f6"};
+        const BSK2={sang:7,chieu:13,toi:17};
+        events.push({ name:subj.name, text:sp.loai==="th"?"Thực hành":"Lý thuyết", time:sp.tietFrom?\`Tiết \${sp.tietFrom}\${sp.tietTo?"–"+sp.tietTo:""}\`:"", color:BCOLORS2[sp.buoi]||"#f97316", sk:BSK2[sp.buoi]||7, room:sp.room||"" });
+      });
+    });
+  } catch {}
+}
+
+// Lịch dạy (soanBaiData)
+if (d?.soanbai) {
+  try {
+    const sb = JSON.parse(d.soanbai.stringValue || "{}");
+    const DOW_MAP = {"Thứ 2":1,"Thứ 3":2,"Thứ 4":3,"Thứ 5":4,"Thứ 6":5,"Thứ 7":6,"Chủ Nhật":0};
+    (sb.subjects || []).forEach(subj => {
+      (subj.scheduleRows || []).forEach(row => {
+        if (!row.day||DOW_MAP[row.day]!==dow) return;
+        const sh = row.startTime?parseInt(row.startTime.split(":")[0]):8;
+        events.push({ name:subj.name, text:row.note||"Dạy học", time:\`\${row.startTime||""}\${row.endTime?"–"+row.endTime:""}\`, color:"#f59e0b", sk:sh, room:row.room||"" });
+      });
+    });
+  } catch {}
+}
+
+events.sort((a,b)=>(a.sk||0)-(b.sk||0));
+
+if (events.length === 0) {
+  const freeRow = w.addStack();
+  freeRow.layoutHorizontally();
+  freeRow.centerAlignContent();
+  const freeTxt = freeRow.addText("🎉  Hôm nay không có lịch!");
+  freeTxt.font = Font.mediumSystemFont(13);
+  freeTxt.textColor = new Color(SUB);
+} else {
+  const subHeader = w.addText(\`\${events.length} SỰ KIỆN HÔM NAY\`);
+  subHeader.font = Font.boldSystemFont(9);
+  subHeader.textColor = new Color(SUB);
+  w.addSpacer(5);
+  for (const ev of events.slice(0,3)) {
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.centerAlignContent();
+    const dot = row.addText("● ");
+    dot.font = Font.boldSystemFont(10);
+    dot.textColor = new Color(ev.color);
+    const nameStack = row.addStack();
+    nameStack.layoutVertically();
+    const nTxt = nameStack.addText(ev.name);
+    nTxt.font = Font.mediumSystemFont(12);
+    nTxt.textColor = new Color(TEXT);
+    nTxt.lineLimit = 1;
+    if (ev.time) {
+      const tTxt = nameStack.addText(ev.time + (ev.room ? " · " + ev.room : ""));
+      tTxt.font = Font.systemFont(10);
+      tTxt.textColor = new Color(SUB);
+    }
+    w.addSpacer(4);
+  }
+  if (events.length > 3) {
+    const more = w.addText(\`+\${events.length-3} sự kiện khác...\`);
+    more.font = Font.systemFont(10);
+    more.textColor = new Color(SUB);
+  }
+}
+
+Script.setWidget(w);
+Script.complete();`;
+      } else {
+        // large today
+        return `// StudyTodo – Lịch Hôm Nay (Large)
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+const CARD_BG = "${cardBg}";
+const BORDER = "${borderColor}";
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    return (await req.loadJSON()).fields || {};
+  } catch(e) { return null; }
+}
+
+const todayK = (() => { const d=new Date(); return \`\${d.getFullYear()}-\${String(d.getMonth()+1).padStart(2,"0")}-\${String(d.getDate()).padStart(2,"0")}\`; })();
+const dow = new Date().getDay();
+const DOW_FULL = ["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"];
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(16, 18, 16, 18);
+
+// Header
+const hRow = w.addStack();
+hRow.layoutHorizontally();
+const ttl = hRow.addText(\`📅  \${DOW_FULL[dow]}\`);
+ttl.font = Font.boldSystemFont(15);
+ttl.textColor = new Color(ACCENT);
+hRow.addSpacer();
+const dateTxt = hRow.addText(new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"}));
+dateTxt.font = Font.systemFont(11);
+dateTxt.textColor = new Color(SUB);
+
+w.addSpacer(12);
+
+const d = await getData();
+const events = [];
+
+// Schedule
+if (d?.lichhoc) {
+  try {
+    const sched = JSON.parse(d.lichhoc.stringValue || "{}");
+    const dayData = sched[todayK] || {};
+    const SLOTS = { s2:{label:"Buổi Sáng",time:"07:00–10:50",sk:7}, s4:{label:"Buổi Chiều",time:"13:30–17:20",sk:13}, s5:{label:"Buổi Tối",time:"17:30–23:00",sk:17} };
+    Object.entries(dayData).forEach(([sid,txt]) => {
+      if (!txt?.trim()) return;
+      const sl=SLOTS[sid];
+      if (sl) events.push({ emoji:"📋", name:sl.label, detail:txt.trim().split("\\n")[0], time:sl.time, color:"#8b5cf6", sk:sl.sk, tag:"Lịch trình" });
+    });
+  } catch {}
+}
+
+// Lịch học
+if (d?.thoikhoa) {
+  try {
+    const lh = JSON.parse(d.thoikhoa.stringValue || "{}");
+    const semStart = lh.semesterStart || "";
+    (lh.subjects || []).forEach(subj => {
+      const processEntry = (entry, isSpecific) => {
+        const dayOfWeek = isSpecific ? new Date(entry.date+"T00:00:00").getDay() : entry.dayOfWeek;
+        if (dayOfWeek !== dow) return;
+        if (isSpecific && entry.date !== todayK) return;
+        let ok = true;
+        if (!isSpecific && semStart) {
+          const s=new Date(semStart+"T00:00:00");
+          let sm=new Date(s); sm.setDate(s.getDate()-((s.getDay()+6)%7));
+          const td=new Date(todayK+"T00:00:00");
+          let tm=new Date(td); tm.setDate(td.getDate()-((td.getDay()+6)%7));
+          const wn=Math.round((tm-sm)/(7*86400000))+1;
+          if (wn<1) ok=false;
+          else {
+            const wf=entry.weekFrom?parseInt(entry.weekFrom):null,wt=entry.weekTo?parseInt(entry.weekTo):null;
+            if (wf&&wn<wf) ok=false; if (wt&&wn>wt) ok=false;
+            if (ok&&entry.weekPattern) {
+              const p=entry.weekPattern;
+              if (p==="odd"&&wn%2===0) ok=false;
+              else if (p==="even"&&wn%2===1) ok=false;
+              else if (p!=="all"&&p!=="odd"&&p!=="even") {
+                const al=p.split(",").map(x=>parseInt(x));
+                if (!al.includes(((wn-1)%4)+1)) ok=false;
+              }
+            }
+          }
+        }
+        if (!ok) return;
+        const BC={sang:"#f97316",chieu:"#22c55e",toi:"#3b82f6"};
+        const BSK={sang:7,chieu:13,toi:17};
+        const timeStr=entry.tietFrom?\`Tiết \${entry.tietFrom}\${entry.tietTo?"–"+entry.tietTo:""}\`:(entry.buoi==="chieu"?"13:30–17:20":entry.buoi==="toi"?"17:30–21:00":"07:00–10:50");
+        events.push({ emoji:"📖", name:subj.name, detail:entry.loai==="th"?"Thực hành":"Lý thuyết", time:timeStr, room:entry.room||"", color:BC[entry.buoi]||"#f97316", sk:BSK[entry.buoi]||7, tag:"Học" });
+      };
+      (subj.rules||[]).forEach(r=>processEntry(r,false));
+      (subj.specifics||[]).forEach(sp=>processEntry(sp,true));
+    });
+  } catch {}
+}
+
+// Lịch dạy
+if (d?.soanbai) {
+  try {
+    const sb=JSON.parse(d.soanbai.stringValue||"{}");
+    const DM={"Thứ 2":1,"Thứ 3":2,"Thứ 4":3,"Thứ 5":4,"Thứ 6":5,"Thứ 7":6,"Chủ Nhật":0};
+    (sb.subjects||[]).forEach(subj=>{
+      (subj.scheduleRows||[]).forEach(row=>{
+        if (!row.day||DM[row.day]!==dow) return;
+        const sh=row.startTime?parseInt(row.startTime.split(":")[0]):8;
+        events.push({ emoji:"🎓", name:subj.name, detail:row.note||"", time:\`\${row.startTime||""}\${row.endTime?"–"+row.endTime:""}\`, room:row.room||"", color:"#f59e0b", sk:sh, tag:"Dạy" });
+      });
+    });
+  } catch {}
+}
+
+events.sort((a,b)=>(a.sk||0)-(b.sk||0));
+
+// Summary
+const sumRow = w.addStack();
+sumRow.layoutHorizontally();
+sumRow.centerAlignContent();
+const countTxt = sumRow.addText(events.length > 0 ? \`\${events.length} SỰ KIỆN HÔM NAY\` : "KHÔNG CÓ LỊCH");
+countTxt.font = Font.boldSystemFont(10);
+countTxt.textColor = new Color(SUB);
+sumRow.addSpacer();
+// Type badges
+const types = [...new Set(events.map(e=>e.tag))];
+const typeTxt = sumRow.addText(types.join(" · "));
+typeTxt.font = Font.systemFont(10);
+typeTxt.textColor = new Color(ACCENT);
+
+w.addSpacer(8);
+
+if (events.length === 0) {
+  const freeRow = w.addStack();
+  freeRow.centerAlignContent();
+  const freeT = freeRow.addText("🎉  Hôm nay không có lịch — tận hưởng ngày nghỉ!");
+  freeT.font = Font.mediumSystemFont(13);
+  freeT.textColor = new Color(SUB);
+} else {
+  for (const ev of events.slice(0, 6)) {
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.centerAlignContent();
+    row.spacing = 8;
+
+    // Color bar
+    const bar = row.addStack();
+    bar.size = new Size(3, 36);
+    bar.cornerRadius = 2;
+    bar.backgroundColor = new Color(ev.color);
+
+    const info = row.addStack();
+    info.layoutVertically();
+    const nameRow = info.addStack();
+    nameRow.layoutHorizontally();
+    nameRow.centerAlignContent();
+    const nameTxt = nameRow.addText(ev.emoji + " " + ev.name);
+    nameTxt.font = Font.boldSystemFont(12);
+    nameTxt.textColor = new Color(TEXT);
+    nameTxt.lineLimit = 1;
+    nameRow.addSpacer();
+    if (ev.tag) {
+      const tagTxt = nameRow.addText(ev.tag);
+      tagTxt.font = Font.boldSystemFont(9);
+      tagTxt.textColor = new Color(ev.color);
+    }
+    const sub2 = info.addText(\`\${ev.time}\${ev.room?" · "+ev.room:""}\${ev.detail?" · "+ev.detail:""}\`);
+    sub2.font = Font.systemFont(10);
+    sub2.textColor = new Color(SUB);
+    sub2.lineLimit = 1;
+
+    w.addSpacer(6);
+  }
+  if (events.length > 6) {
+    const moreTxt = w.addText(\`+\${events.length-6} sự kiện khác...\`);
+    moreTxt.font = Font.systemFont(10);
+    moreTxt.textColor = new Color(SUB);
+  }
+}
+
+Script.setWidget(w);
+Script.complete();`;
+      }
+    }
+
+    // ── Study progress widget (original) ──
+    if (widgetSize === "small") {
+      return `// StudyTodo Small Widget
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    const res = await req.loadJSON();
+    return res.fields || {};
+  } catch(e) { return null; }
+}
+
+function daysLeft(dateStr) {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr) - new Date();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(14, 14, 14, 14);
+w.url = "scriptable:///run/StudyTodo";
+
+const hStack = w.addStack();
+hStack.layoutHorizontally();
+hStack.centerAlignContent();
+const icon = hStack.addText("📚");
+icon.font = Font.systemFont(18);
+hStack.addSpacer();
+const titleTxt = hStack.addText("CANHAN");
+titleTxt.font = Font.boldSystemFont(11);
+titleTxt.textColor = new Color(ACCENT);
+titleTxt.textOpacity = 0.9;
+
+w.addSpacer(8);
+
+const d = await getData();
+let pct = 0;
+let nextExam = null;
+let nextSubj = "—";
+if (d && d.monhoc) {
+  try {
+    const parsed = JSON.parse(d.monhoc.stringValue || "{}");
+    const subjects = parsed.subjects || [];
+    const total = subjects.reduce((a,s)=>a+(s.lessons?.length||0),0);
+    const done = subjects.reduce((a,s)=>a+(s.lessons?.filter(l=>l.done).length||0),0);
+    pct = total > 0 ? Math.round(done/total*100) : 0;
+    const upcoming = subjects.filter(s=>s.examDate).sort((a,b)=>new Date(a.examDate)-new Date(b.examDate));
+    if (upcoming.length > 0) {
+      nextExam = daysLeft(upcoming[0].examDate);
+      nextSubj = upcoming[0].name;
+    }
+  } catch(e) {}
+}
+
+const pctTxt = w.addText(\`\${pct}% hoàn thành\`);
+pctTxt.font = Font.boldSystemFont(22);
+pctTxt.textColor = new Color(TEXT);
+
+w.addSpacer(4);
+
+const subjLabel = w.addText("tiến độ học tập");
+subjLabel.font = Font.systemFont(11);
+subjLabel.textColor = new Color(SUB);
+
+w.addSpacer(10);
+
+if (nextExam !== null) {
+  const examTxt = w.addText(\`⏰ \${nextSubj}\`);
+  examTxt.font = Font.mediumSystemFont(11);
+  examTxt.textColor = new Color(ACCENT);
+  examTxt.lineLimit = 1;
+  w.addSpacer(2);
+  const daysTxt = w.addText(nextExam <= 0 ? "Hôm nay thi!" : nextExam === 1 ? "Ngày mai thi!" : \`Còn \${nextExam} ngày\`);
+  daysTxt.font = Font.systemFont(11);
+  daysTxt.textColor = nextExam <= 3 ? new Color("#ef4444") : new Color(SUB);
+} else {
+  const noExam = w.addText("✅ Không có lịch thi");
+  noExam.font = Font.systemFont(11);
+  noExam.textColor = new Color(SUB);
+}
+
+Script.setWidget(w);
+Script.complete();`;
+    } else if (widgetSize === "medium") {
+      return `// StudyTodo Medium Widget
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+const CARD_BG = "${cardBg}";
+const BORDER = "${borderColor}";
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    return (await req.loadJSON()).fields || {};
+  } catch(e) { return null; }
+}
+
+function daysLeft(dateStr) {
+  if (!dateStr) return null;
+  return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+}
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(14, 16, 14, 16);
+
+const d = await getData();
+let subjects = [], pct = 0;
+if (d?.monhoc) {
+  try {
+    const p = JSON.parse(d.monhoc.stringValue || "{}");
+    subjects = p.subjects || [];
+    const total = subjects.reduce((a,s)=>a+(s.lessons?.length||0),0);
+    const done = subjects.reduce((a,s)=>a+(s.lessons?.filter(l=>l.done).length||0),0);
+    pct = total>0 ? Math.round(done/total*100) : 0;
+  } catch(e) {}
+}
+
+const hRow = w.addStack();
+hRow.layoutHorizontally();
+hRow.centerAlignContent();
+const ttl = hRow.addText("📚 CANHAN TRACKER");
+ttl.font = Font.boldSystemFont(12);
+ttl.textColor = new Color(ACCENT);
+hRow.addSpacer();
+const dateTxt = hRow.addText(new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"}));
+dateTxt.font = Font.systemFont(11);
+dateTxt.textColor = new Color(SUB);
+
+w.addSpacer(10);
+
+const pRow = w.addStack();
+pRow.layoutHorizontally();
+pRow.centerAlignContent();
+const pLabel = pRow.addText(\`Tiến độ: \${pct}%\`);
+pLabel.font = Font.mediumSystemFont(12);
+pLabel.textColor = new Color(TEXT);
+pRow.addSpacer();
+const pSub = pRow.addText(\`\${subjects.length} môn\`);
+pSub.font = Font.systemFont(11);
+pSub.textColor = new Color(SUB);
+
+w.addSpacer(4);
+const barStack = w.addStack();
+barStack.size = new Size(0, 6);
+barStack.cornerRadius = 3;
+barStack.backgroundColor = new Color(BORDER);
+const fillStack = barStack.addStack();
+fillStack.size = new Size(0, 6);
+fillStack.cornerRadius = 3;
+fillStack.backgroundColor = new Color(ACCENT);
+
+w.addSpacer(10);
+
+const upcoming = subjects.filter(s=>s.examDate).sort((a,b)=>new Date(a.examDate)-new Date(b.examDate)).slice(0,3);
+const examHeader = w.addText("🗓  LỊCH THI SẮP TỚI");
+examHeader.font = Font.boldSystemFont(10);
+examHeader.textColor = new Color(SUB);
+w.addSpacer(5);
+if (upcoming.length > 0) {
+  for (const s of upcoming) {
+    const dl = Math.ceil((new Date(s.examDate) - new Date()) / 86400000);
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.centerAlignContent();
+    const name = row.addText(s.name);
+    name.font = Font.mediumSystemFont(12);
+    name.textColor = new Color(TEXT);
+    name.lineLimit = 1;
+    row.addSpacer();
+    const badge = row.addText(dl <= 0 ? "Hôm nay!" : dl === 1 ? "Ngày mai" : \`\${dl} ngày\`);
+    badge.font = Font.boldSystemFont(11);
+    badge.textColor = new Color(dl <= 3 ? "#ef4444" : ACCENT);
+    w.addSpacer(3);
+  }
+} else {
+  const noExam = w.addText("✅ Không có lịch thi nào sắp tới");
+  noExam.font = Font.systemFont(12);
+  noExam.textColor = new Color(SUB);
+}
+
+Script.setWidget(w);
+Script.complete();`;
+    } else {
+      return `// StudyTodo Large Widget
+// Cài bằng Scriptable — canhan
+const SYNC_ID = "${syncId}";
+const ACCENT = "${accent}";
+const BG = "${bg}";
+const TEXT = "${textColor}";
+const SUB = "${subColor}";
+
+async function getData() {
+  try {
+    const url = \`https://firestore.googleapis.com/v1/projects/studytodo-app/databases/(default)/documents/users/\${SYNC_ID}\`;
+    const req = new Request(url);
+    return (await req.loadJSON()).fields || {};
+  } catch(e) { return null; }
+}
+
+function daysLeft(dateStr) {
+  return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+}
+
+const w = new ListWidget();
+w.backgroundColor = new Color(BG);
+w.setPadding(16, 18, 16, 18);
+
+const d = await getData();
+let subjects = [], pct = 0, totalDone = 0, totalLessons = 0;
+if (d?.monhoc) {
+  try {
+    const p = JSON.parse(d.monhoc.stringValue || "{}");
+    subjects = p.subjects || [];
+    totalLessons = subjects.reduce((a,s)=>a+(s.lessons?.length||0),0);
+    totalDone = subjects.reduce((a,s)=>a+(s.lessons?.filter(l=>l.done).length||0),0);
+    pct = totalLessons>0 ? Math.round(totalDone/totalLessons*100) : 0;
+  } catch(e) {}
+}
+
+const hRow = w.addStack();
+hRow.layoutHorizontally();
+const ttl = hRow.addText("📚  CANHAN TRACKER");
+ttl.font = Font.boldSystemFont(14);
+ttl.textColor = new Color(ACCENT);
+hRow.addSpacer();
+const dateTxt = hRow.addText(new Date().toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"}));
+dateTxt.font = Font.systemFont(11);
+dateTxt.textColor = new Color(SUB);
+
+w.addSpacer(12);
+
+const statsRow = w.addStack();
+statsRow.layoutHorizontally();
+statsRow.spacing = 10;
+
+function addStat(parent, emoji, value, label) {
+  const col = parent.addStack();
+  col.layoutVertically();
+  const ev = col.addText(\`\${emoji} \${value}\`);
+  ev.font = Font.boldSystemFont(16);
+  ev.textColor = new Color(TEXT);
+  const lbl = col.addText(label);
+  lbl.font = Font.systemFont(10);
+  lbl.textColor = new Color(SUB);
+}
+addStat(statsRow, "📖", subjects.length.toString(), "môn học");
+statsRow.addSpacer();
+addStat(statsRow, "✅", \`\${totalDone}/\${totalLessons}\`, "bài hoàn thành");
+statsRow.addSpacer();
+addStat(statsRow, "🎯", \`\${pct}%\`, "tiến độ");
+
+w.addSpacer(12);
+
+const upcoming = subjects.filter(s=>s.examDate).sort((a,b)=>new Date(a.examDate)-new Date(b.examDate)).slice(0,5);
+const examTitle = w.addText("🗓  LỊCH THI SẮP TỚI");
+examTitle.font = Font.boldSystemFont(10);
+examTitle.textColor = new Color(SUB);
+w.addSpacer(6);
+
+if (upcoming.length > 0) {
+  for (const s of upcoming) {
+    const dl = daysLeft(s.examDate);
+    const row = w.addStack();
+    row.layoutHorizontally();
+    row.centerAlignContent();
+    const dot = row.addText("•  ");
+    dot.font = Font.boldSystemFont(12);
+    dot.textColor = new Color(dl<=3?"#ef4444":ACCENT);
+    const name = row.addText(s.name);
+    name.font = Font.mediumSystemFont(12);
+    name.textColor = new Color(TEXT);
+    name.lineLimit = 1;
+    row.addSpacer();
+    const badge = row.addText(dl<=0?"Hôm nay!":dl===1?"Ngày mai":\`\${dl} ngày\`);
+    badge.font = Font.boldSystemFont(11);
+    badge.textColor = new Color(dl<=3?"#ef4444":ACCENT);
+    if (s.examTime) {
+      w.addSpacer(1);
+      const sub2 = w.addText(\`       \${s.examTime}\${s.examRoom?" · "+s.examRoom:""}\`);
+      sub2.font = Font.systemFont(10);
+      sub2.textColor = new Color(SUB);
+    }
+    w.addSpacer(5);
+  }
+} else {
+  const noEx = w.addText("  ✅ Không có lịch thi nào sắp tới");
+  noEx.font = Font.systemFont(12);
+  noEx.textColor = new Color(SUB);
+}
+
+Script.setWidget(w);
+Script.complete();`;
+    }
+  };
+
+  const script = generateScript();
+
+  const copyScript = () => {
+    navigator.clipboard.writeText(script).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
+
+  const steps = [
+    { icon:"📲", title:"Tải Scriptable", desc:"Mở App Store và tải ứng dụng Scriptable (miễn phí).", detail:"Scriptable là app chạy JavaScript trên iOS, cho phép tạo widget tuỳ chỉnh mạnh mẽ.", action:null },
+    { icon:"📋", title:"Sao chép script", desc:"Chọn loại & kích thước widget, rồi nhấn Sao chép script.", detail:"Script đã được tạo tự động với mã đồng bộ của bạn — không cần chỉnh sửa gì thêm.", action:copyScript, actionLabel:copied?"✅ Đã sao chép!":"Sao chép script" },
+    { icon:"✏️", title:"Tạo script trong Scriptable", desc:"Mở Scriptable → nhấn + → dán code vào → đặt tên StudyTodo → nhấn Done.", detail:"Tên script phải khớp chính xác: StudyTodo (có phân biệt hoa thường).", action:null },
+    { icon:"🖼️", title:"Thêm widget lên màn hình", desc:"Giữ màn hình chính → nhấn + → tìm Scriptable → chọn kích thước → chọn script StudyTodo.", detail:"Widget sẽ tự cập nhật dữ liệu từ tài khoản của bạn mỗi vài phút.", action:null },
+  ];
+
+  // ── Previews cho Today widget ──
+  const TodayPreviewSmall = () => {
+    const count = allTodayEvents.length;
+    const first = allTodayEvents[0];
+    const dowLabel = ["CN","T2","T3","T4","T5","T6","T7"][todayDate.getDay()];
+    return (
+      <div style={{width:155,height:155,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:14,display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:16}}>📅</span>
+          <span style={{fontSize:10,fontWeight:700,color:accent}}>{dowLabel}</span>
+        </div>
+        <div style={{fontSize:22,fontWeight:800,color:widgetTheme==="dark"?"#fff":"#111827",lineHeight:1}}>{todayDate.getDate()}/{todayDate.getMonth()+1}</div>
+        <div style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",marginTop:2,marginBottom:"auto"}}>{count>0?`${count} sự kiện`:"Không có lịch"}</div>
+        {first ? (
+          <div style={{marginTop:6}}>
+            <div style={{fontSize:10,fontWeight:600,color:first.typeColor||accent,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>● {first.name||first.text}</div>
+            {first.time && <div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{first.time}</div>}
+          </div>
+        ) : <div style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",marginTop:4}}>🎉 Hôm nay rảnh</div>}
+      </div>
+    );
+  };
+
+  const TodayPreviewMedium = () => {
+    const events = allTodayEvents.slice(0,3);
+    return (
+      <div style={{width:330,height:155,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:"14px 16px",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+          <span style={{fontSize:12,fontWeight:700,color:accent}}>📅 {["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"][todayDate.getDay()]}</span>
+          <span style={{fontSize:11,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{`${todayDate.getDate()}/${todayDate.getMonth()+1}`}</span>
+        </div>
+        <div style={{fontSize:9,fontWeight:700,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",letterSpacing:".06em",marginBottom:5}}>{allTodayEvents.length>0?`${allTodayEvents.length} SỰ KIỆN HÔM NAY`:"KHÔNG CÓ LỊCH HÔM NAY"}</div>
+        {events.length>0 ? events.map((ev,i)=>(
+          <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+            <span style={{width:7,height:7,borderRadius:"50%",background:ev.typeColor||accent,flexShrink:0}} />
+            <div style={{overflow:"hidden",flex:1}}>
+              <div style={{fontSize:11,fontWeight:600,color:widgetTheme==="dark"?"#fff":"#111827",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{ev.name||ev.text}</div>
+              {ev.time&&<div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{ev.time}{ev.room?" · "+ev.room:""}</div>}
+            </div>
+            <span style={{fontSize:9,fontWeight:700,color:ev.typeColor||accent,flexShrink:0}}>{ev.typeLabel}</span>
+          </div>
+        )) : <div style={{fontSize:11,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>🎉 Hôm nay không có lịch!</div>}
+        {allTodayEvents.length>3&&<div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>+{allTodayEvents.length-3} sự kiện khác...</div>}
+      </div>
+    );
+  };
+
+  const TodayPreviewLarge = () => {
+    const events = allTodayEvents.slice(0,6);
+    return (
+      <div style={{width:330,height:330,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:"16px 18px",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:14,fontWeight:700,color:accent}}>📅 {["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"][todayDate.getDay()]}</span>
+          <span style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{todayDate.toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric"})}</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:9,fontWeight:700,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",letterSpacing:".05em"}}>{allTodayEvents.length>0?`${allTodayEvents.length} SỰ KIỆN HÔM NAY`:"KHÔNG CÓ LỊCH"}</span>
+          {allTodayEvents.length>0&&<span style={{fontSize:9,color:accent}}>{[...new Set(allTodayEvents.map(e=>e.typeLabel))].join(" · ")}</span>}
+        </div>
+        {events.length>0 ? events.map((ev,i)=>(
+          <div key={i} style={{display:"flex",gap:8,alignItems:"stretch",marginBottom:6}}>
+            <div style={{width:3,borderRadius:2,background:ev.typeColor||accent,flexShrink:0}} />
+            <div style={{flex:1,overflow:"hidden"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,fontWeight:700,color:widgetTheme==="dark"?"#fff":"#111827",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",maxWidth:"75%"}}>{ev.source==="hoc"?"📖":ev.source==="day"?"🎓":"📋"} {ev.name||ev.text}</span>
+                <span style={{fontSize:9,fontWeight:700,color:ev.typeColor||accent,flexShrink:0}}>{ev.typeLabel}</span>
+              </div>
+              <div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{ev.time}{ev.room?" · "+ev.room:""}{ev.text&&ev.source==="schedule"?" · "+ev.text:""}</div>
+            </div>
+          </div>
+        )) : <div style={{fontSize:12,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>🎉 Hôm nay không có lịch — tận hưởng ngày nghỉ!</div>}
+        {allTodayEvents.length>6&&<div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>+{allTodayEvents.length-6} sự kiện khác...</div>}
+      </div>
+    );
+  };
+
+  // ── Previews cho Study widget (original) ──
+  const PreviewSmall = () => (
+    <div style={{width:155,height:155,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:"14px",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:18}}>📚</span>
+        <span style={{fontSize:10,fontWeight:700,color:accent,letterSpacing:".08em"}}>CANHAN</span>
+      </div>
+      <div style={{fontSize:26,fontWeight:800,color:widgetTheme==="dark"?"#fff":"#111827",lineHeight:1}}>{progress}%</div>
+      <div style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",marginTop:2,marginBottom:"auto"}}>hoàn thành</div>
+      {upcoming[0] ? (
+        <div style={{marginTop:6}}>
+          <div style={{fontSize:10,fontWeight:600,color:accent,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>⏰ {upcoming[0].name}</div>
+          <div style={{fontSize:10,color:(()=>{const d=Math.ceil((new Date(upcoming[0].examDate)-new Date())/86400000);return d<=3?"#ef4444":widgetTheme==="dark"?"#a0aec0":"#6b7280";})()}}>
+            {(()=>{const d=Math.ceil((new Date(upcoming[0].examDate)-new Date())/86400000);return d<=0?"Hôm nay thi!":d===1?"Ngày mai thi!":`Còn ${d} ngày`;})()}
+          </div>
+        </div>
+      ) : <div style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",marginTop:4}}>✅ Không có lịch thi</div>}
+    </div>
+  );
+
+  const PreviewMedium = () => (
+    <div style={{width:330,height:155,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:"14px 16px",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontSize:12,fontWeight:700,color:accent}}>📚 CANHAN TRACKER</span>
+        <span style={{fontSize:11,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{new Date().toLocaleDateString("vi-VN",{day:"2-digit",month:"2-digit"})}</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <span style={{fontSize:12,fontWeight:600,color:widgetTheme==="dark"?"#fff":"#111827"}}>Tiến độ: {progress}%</span>
+        <span style={{fontSize:11,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{(data?.subjects||[]).length} môn</span>
+      </div>
+      <div style={{height:5,background:widgetTheme==="dark"?"#0f3460":"#e5e7eb",borderRadius:3,marginBottom:8,overflow:"hidden"}}>
+        <div style={{height:"100%",width:`${progress}%`,background:accent,borderRadius:3,transition:"width .4s"}} />
+      </div>
+      <div style={{fontSize:10,fontWeight:700,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",letterSpacing:".06em",marginBottom:4}}>🗓  LỊCH THI SẮP TỚI</div>
+      {upcoming.slice(0,2).map((s,i)=>{
+        const dl=Math.ceil((new Date(s.examDate)-new Date())/86400000);
+        return <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+          <span style={{fontSize:11,color:widgetTheme==="dark"?"#fff":"#111827",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",maxWidth:"65%"}}>{s.name}</span>
+          <span style={{fontSize:11,fontWeight:700,color:dl<=3?"#ef4444":accent,flexShrink:0}}>{dl<=0?"Hôm nay!":dl===1?"Ngày mai":`${dl} ngày`}</span>
+        </div>;
+      })}
+      {upcoming.length===0&&<div style={{fontSize:11,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>✅ Không có lịch thi nào sắp tới</div>}
+    </div>
+  );
+
+  const PreviewLarge = () => (
+    <div style={{width:330,height:330,borderRadius:22,background:widgetTheme==="dark"?"#1a1a2e":"#fff",padding:"16px 18px",display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,.25)",border:`1px solid ${widgetTheme==="dark"?"#0f3460":"#e5e7eb"}`,flexShrink:0}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontSize:13,fontWeight:700,color:accent}}>📚  CANHAN TRACKER</span>
+        <span style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>{new Date().toLocaleDateString("vi-VN",{weekday:"short",day:"2-digit",month:"2-digit"})}</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-around",marginBottom:12,background:widgetTheme==="dark"?"#16213e":"#f8fafc",borderRadius:12,padding:"10px 6px"}}>
+        {[["📖",(data?.subjects||[]).length.toString(),"môn học"],["✅",`${(data?.subjects||[]).reduce((a,s)=>a+(s.lessons?.filter(l=>l.done).length||0),0)}/${(data?.subjects||[]).reduce((a,s)=>a+(s.lessons?.length||0),0)}`,"hoàn thành"],["🎯",`${progress}%`,"tiến độ"]].map(([e,v,l],i)=>(
+          <div key={i} style={{textAlign:"center"}}>
+            <div style={{fontSize:14,fontWeight:800,color:widgetTheme==="dark"?"#fff":"#111827"}}>{e} {v}</div>
+            <div style={{fontSize:9,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",marginTop:1}}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:10,fontWeight:700,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",letterSpacing:".06em",marginBottom:6}}>🗓  LỊCH THI SẮP TỚI</div>
+      {upcoming.slice(0,4).map((s,i)=>{
+        const dl=Math.ceil((new Date(s.examDate)-new Date())/86400000);
+        return <div key={i} style={{marginBottom:6}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:12,color:widgetTheme==="dark"?"#fff":"#111827",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",maxWidth:"70%"}}>• {s.name}</span>
+            <span style={{fontSize:11,fontWeight:700,color:dl<=3?"#ef4444":accent,flexShrink:0}}>{dl<=0?"Hôm nay!":dl===1?"Ngày mai":`${dl} ngày`}</span>
+          </div>
+          {s.examTime&&<div style={{fontSize:10,color:widgetTheme==="dark"?"#a0aec0":"#6b7280",paddingLeft:12}}>{s.examTime}{s.examRoom?" · "+s.examRoom:""}</div>}
+        </div>;
+      })}
+      {upcoming.length===0&&<div style={{fontSize:12,color:widgetTheme==="dark"?"#a0aec0":"#6b7280"}}>✅ Không có lịch thi nào sắp tới</div>}
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",padding:isMobile?"20px 16px 40px":"32px 28px 60px"}}>
+      {/* Title */}
+      <div style={{marginBottom:22}}>
+        <h2 style={{margin:"0 0 4px",fontSize:isMobile?20:18,fontWeight:800,letterSpacing:"-.02em",color:"#111827"}}>Widget iOS</h2>
+        <p style={{margin:0,fontSize:isMobile?14:13,color:"#9ca3af",fontWeight:500}}>Hiển thị dữ liệu học tập & lịch trình ngay trên màn hình chính iPhone</p>
+      </div>
+
+      {/* Widget Type Selector */}
+      <div style={{display:"flex",gap:10,marginBottom:20}}>
+        {[
+          {id:"study", icon:"📚", label:"Tiến độ học", desc:"% hoàn thành & lịch thi"},
+          {id:"today", icon:"📅", label:"Lịch hôm nay", desc:"Tổng hợp lịch học, dạy, trình"},
+        ].map(t => (
+          <button key={t.id} onClick={()=>setWidgetType(t.id)} style={{flex:1,background:widgetType===t.id?accentLight:"#f8fafc",border:`2px solid ${widgetType===t.id?accent:"#e5e7eb"}`,borderRadius:14,padding:isMobile?"14px 10px":"12px 16px",cursor:"pointer",textAlign:"left",transition:"all .15s"}}>
+            <div style={{fontSize:20,marginBottom:4}}>{t.icon}</div>
+            <div style={{fontSize:isMobile?13:12,fontWeight:700,color:widgetType===t.id?accentText:"#374151",marginBottom:2}}>{t.label}</div>
+            <div style={{fontSize:isMobile?11:10,color:"#9ca3af",fontWeight:500}}>{t.desc}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Today events summary (only for today widget) */}
+      {widgetType==="today" && (
+        <div style={{background:"#fff",borderRadius:14,border:"1px solid #f3f4f6",padding:isMobile?"14px 16px":"14px 20px",marginBottom:16,boxShadow:"0 1px 4px rgba(0,0,0,.04)"}}>
+          <div style={{fontSize:isMobile?13:12,fontWeight:700,color:"#6b7280",marginBottom:allTodayEvents.length>0?10:0}}>
+            📋 Lịch hôm nay ({["Chủ Nhật","Thứ Hai","Thứ Ba","Thứ Tư","Thứ Năm","Thứ Sáu","Thứ Bảy"][todayDate.getDay()]}, {todayDate.getDate()}/{todayDate.getMonth()+1}) — {allTodayEvents.length>0?`${allTodayEvents.length} sự kiện`:"Rảnh cả ngày 🎉"}
+          </div>
+          {allTodayEvents.length>0 && allTodayEvents.map((ev,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderTop:i>0?"1px solid #f3f4f6":"none"}}>
+              <span style={{width:8,height:8,borderRadius:"50%",background:ev.typeColor||accent,flexShrink:0}} />
+              <div style={{flex:1,overflow:"hidden"}}>
+                <span style={{fontSize:isMobile?13:12,fontWeight:600,color:"#374151"}}>{ev.name||ev.text}</span>
+                {ev.time&&<span style={{fontSize:isMobile?11:10,color:"#9ca3af",marginLeft:6}}>{ev.time}</span>}
+                {ev.room&&<span style={{fontSize:isMobile?11:10,color:"#9ca3af",marginLeft:4}}>· {ev.room}</span>}
+              </div>
+              <span style={{fontSize:isMobile?10:9,fontWeight:700,color:ev.typeColor||accent,background:(ev.typeColor||accent)+"15",borderRadius:6,padding:"2px 7px",flexShrink:0}}>{ev.typeLabel}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Step indicator */}
+      <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:20,overflowX:"auto",paddingBottom:4}}>
+        {steps.map((s,i)=>(
+          <React.Fragment key={i}>
+            <button onClick={()=>setStep(i)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,background:"none",border:"none",cursor:"pointer",flexShrink:0,padding:"4px 8px"}}>
+              <div style={{width:32,height:32,borderRadius:"50%",background:step===i?accent:i<step?"#22c55e":accentLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,transition:"background .2s",border:step===i?`2px solid ${accent}`:"2px solid transparent"}}>
+                {i<step?"✓":s.icon}
+              </div>
+              {!isMobile&&<span style={{fontSize:10,fontWeight:step===i?700:500,color:step===i?accentText:"#9ca3af",whiteSpace:"nowrap"}}>{s.title}</span>}
+            </button>
+            {i<steps.length-1&&<div style={{flex:1,height:2,background:i<step?accent:"#e5e7eb",minWidth:12,transition:"background .3s"}} />}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* Current step card */}
+      <div style={{background:"#fff",borderRadius:16,border:"1px solid #f3f4f6",padding:isMobile?"18px 16px":"20px 24px",marginBottom:20,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+        <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:12}}>
+          <div style={{width:44,height:44,borderRadius:12,background:accentLight,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{steps[step].icon}</div>
+          <div>
+            <div style={{fontSize:isMobile?16:15,fontWeight:700,color:"#111827",marginBottom:3}}>Bước {step+1}: {steps[step].title}</div>
+            <div style={{fontSize:isMobile?14:13,color:"#374151",lineHeight:1.5}}>{steps[step].desc}</div>
+          </div>
+        </div>
+        <div style={{background:"#f8fafc",borderRadius:10,padding:"10px 14px",fontSize:isMobile?13:12,color:"#6b7280",lineHeight:1.55,borderLeft:`3px solid ${accent}40`}}>
+          💡 {steps[step].detail}
+        </div>
+        {step===1&&(
+          <div style={{marginTop:14,display:"flex",flexWrap:"wrap",gap:10,alignItems:"center"}}>
+            <button onClick={copyScript} style={{background:copied?"#22c55e":accent,border:"none",borderRadius:10,color:"#fff",fontSize:isMobile?14:13,padding:isMobile?"11px 20px":"9px 18px",cursor:"pointer",fontWeight:700,display:"flex",alignItems:"center",gap:7,transition:"background .2s"}}>
+              {copied?"✅ Đã sao chép!":"📋 Sao chép script"}
+            </button>
+            <span style={{fontSize:12,color:"#9ca3af"}}>Loại: <b style={{color:accentText}}>{widgetType==="today"?"Lịch hôm nay":"Tiến độ học"}</b> · Cỡ: <b style={{color:accentText}}>{widgetSize==="small"?"Nhỏ":widgetSize==="medium"?"Vừa":"Lớn"}</b></span>
+          </div>
+        )}
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:16,gap:10}}>
+          <button onClick={()=>setStep(s=>Math.max(0,s-1))} disabled={step===0} style={{background:"none",border:"1px solid #e5e7eb",borderRadius:10,color:"#9ca3af",fontSize:isMobile?14:13,padding:isMobile?"9px 18px":"8px 16px",cursor:step===0?"not-allowed":"pointer",fontWeight:600,opacity:step===0?.4:1}}>← Trước</button>
+          {steps[step].action&&step!==1&&(
+            <button onClick={steps[step].action} style={{background:accent,border:"none",borderRadius:10,color:"#fff",fontSize:isMobile?14:13,padding:isMobile?"9px 18px":"8px 16px",cursor:"pointer",fontWeight:700}}>{steps[step].actionLabel}</button>
+          )}
+          <button onClick={()=>setStep(s=>Math.min(steps.length-1,s+1))} disabled={step===steps.length-1} style={{background:step===steps.length-1?"none":accent,border:step===steps.length-1?"1px solid #e5e7eb":"none",borderRadius:10,color:step===steps.length-1?"#9ca3af":"#fff",fontSize:isMobile?14:13,padding:isMobile?"9px 18px":"8px 16px",cursor:step===steps.length-1?"not-allowed":"pointer",fontWeight:700,opacity:step===steps.length-1?.4:1}}>Tiếp →</button>
+        </div>
+      </div>
+
+      {/* Widget Customizer */}
+      <div style={{background:"#fff",borderRadius:16,border:"1px solid #f3f4f6",padding:isMobile?"16px":"20px 24px",marginBottom:20,boxShadow:"0 1px 6px rgba(0,0,0,.05)"}}>
+        <div style={{fontSize:isMobile?15:14,fontWeight:700,color:"#111827",marginBottom:14}}>🎨 Tuỳ chỉnh Widget</div>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:16}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b7280",marginBottom:6}}>KÍCH THƯỚC</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["small","Nhỏ"],["medium","Vừa"],["large","Lớn"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setWidgetSize(k)} style={{background:widgetSize===k?accentLight:"#f3f4f6",border:`1.5px solid ${widgetSize===k?accent:"transparent"}`,borderRadius:8,color:widgetSize===k?accentText:"#6b7280",fontSize:12,padding:"6px 12px",cursor:"pointer",fontWeight:widgetSize===k?700:500,transition:"all .15s"}}>{l}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{fontSize:12,fontWeight:600,color:"#6b7280",marginBottom:6}}>NỀN</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["dark","🌙 Tối"],["light","☀️ Sáng"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setWidgetTheme(k)} style={{background:widgetTheme===k?accentLight:"#f3f4f6",border:`1.5px solid ${widgetTheme===k?accent:"transparent"}`,borderRadius:8,color:widgetTheme===k?accentText:"#6b7280",fontSize:12,padding:"6px 12px",cursor:"pointer",fontWeight:widgetTheme===k?700:500,transition:"all .15s"}}>{l}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div style={{fontSize:12,fontWeight:600,color:"#6b7280",marginBottom:10}}>PREVIEW</div>
+        <div style={{overflowX:"auto",paddingBottom:4}}>
+          <div style={{display:"inline-flex",gap:16,alignItems:"flex-start",background:"linear-gradient(135deg,#1e293b 0%,#334155 100%)",borderRadius:16,padding:"20px",minWidth:"min-content"}}>
+            {widgetType==="today" ? (
+              widgetSize==="small" ? <TodayPreviewSmall /> : widgetSize==="medium" ? <TodayPreviewMedium /> : <TodayPreviewLarge />
+            ) : (
+              widgetSize==="small" ? <PreviewSmall /> : widgetSize==="medium" ? <PreviewMedium /> : <PreviewLarge />
+            )}
+          </div>
+        </div>
+        <p style={{margin:"10px 0 0",fontSize:12,color:"#9ca3af"}}>Preview hiển thị dữ liệu thực từ tài khoản của bạn</p>
+      </div>
+
+      {/* Script preview */}
+      <div style={{background:"#0f172a",borderRadius:16,overflow:"hidden",border:"1px solid #1e293b"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid #1e293b"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{display:"flex",gap:5}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:"#ef4444"}} />
+              <div style={{width:10,height:10,borderRadius:"50%",background:"#f59e0b"}} />
+              <div style={{width:10,height:10,borderRadius:"50%",background:"#22c55e"}} />
+            </div>
+            <span style={{fontSize:11,color:"#64748b",fontFamily:"monospace"}}>StudyTodo.js</span>
+          </div>
+          <button onClick={copyScript} style={{background:copied?"#22c55e20":accent+"20",border:`1px solid ${copied?"#22c55e":accent}40`,borderRadius:6,color:copied?"#22c55e":accent,fontSize:11,padding:"4px 10px",cursor:"pointer",fontWeight:700,transition:"all .2s"}}>
+            {copied?"✅ Copied!":"📋 Copy"}
+          </button>
+        </div>
+        <div style={{padding:"16px",overflowX:"auto",maxHeight:260,overflowY:"auto"}}>
+          <pre style={{margin:0,fontSize:11,lineHeight:1.6,color:"#94a3b8",fontFamily:"'SF Mono','Fira Code',monospace",whiteSpace:"pre"}}>{script}</pre>
+        </div>
+      </div>
+
+      {/* Sync ID note */}
+      <div style={{marginTop:16,background:"#fffbeb",borderRadius:12,padding:"12px 16px",border:"1px solid #fde68a",display:"flex",gap:10,alignItems:"flex-start"}}>
+        <span style={{fontSize:18,flexShrink:0}}>🔑</span>
+        <div>
+          <div style={{fontSize:isMobile?13:12,fontWeight:700,color:"#92400e",marginBottom:2}}>Mã đồng bộ của bạn đã được nhúng sẵn</div>
+          <div style={{fontSize:isMobile?12:11,color:"#b45309",fontFamily:"monospace",wordBreak:"break-all"}}>{syncId || "Chưa có mã — vui lòng đăng nhập"}</div>
+        </div>
       </div>
     </div>
   );
@@ -3427,6 +4624,8 @@ function App() {
         <SoanBaiPage theme={theme} isMobile={isMobile} soanBaiData={soanBaiData} setSoanBaiData={setSoanBaiData} />
       ) : activeTab==="taichinh" ? (
         <TaiChinhPage theme={theme} isMobile={isMobile} taiChinh={taiChinh} setTaiChinh={setTaiChinh} soanBaiData={soanBaiData} />
+      ) : activeTab==="widget" ? (
+        <WidgetPage theme={theme} isMobile={isMobile} data={data} taiChinh={taiChinh} lichHocData={lichHocData} schedule={schedule} soanBaiData={soanBaiData} />
       ) : (
         <PlaceholderPage tab={currentTabInfo} theme={theme} isMobile={isMobile} />
       )}
