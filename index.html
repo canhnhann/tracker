@@ -3118,7 +3118,7 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
               const isHighlighted = activeFilter !== null && cellMatchesFilter && cell.sessions.length > 0;
               return (
                 <button key={ci} onClick={() => { if (!isDimmed) setSelectedDay(isSel ? null : cell.key); }}
-                  style={{ minHeight: isMobile?56:60, border:"none",
+                  style={{ minHeight: isMobile?64:66, border:"none",
                     background: isSel ? accentLight : isHighlighted ? `${accent}12` : "transparent",
                     cursor: isDimmed ? "default" : "pointer", display:"flex", flexDirection:"column",
                     alignItems:"center", padding:"4px 2px",
@@ -3136,51 +3136,60 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
                     color: cell.isToday?"#fff" : isSun?"#dc2626":isHighlighted?accentText:"#111827" }}>
                     {cell.dayNum}
                   </div>
-                  {/* Icons for events */}
-                  {cell.sessions.length > 0 && (
-                    <div style={{ display:"flex", gap:2, flexWrap:"wrap",
-                      justifyContent:"center", marginTop:3, maxWidth:36 }}>
-                      {cell.sessions.slice(0,4).map((s,i) => {
-                        if (s.type === "thi") return (
-                          <span key={i} title="Lịch thi" style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                            width:14, height:14, borderRadius:"50%", background:"#fef2f2", border:"1px solid #fecaca", flexShrink:0 }}>
-                            <svg width="8" height="8" fill="none" stroke="#dc2626" strokeWidth="2.2" viewBox="0 0 24 24">
-                              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                            </svg>
-                          </span>
-                        );
-                        if (s.type === "day") return (
-                          <span key={i} title="Lịch dạy" style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                            width:14, height:14, borderRadius:"50%", background:"#faf5ff", border:"1px solid #e9d5ff", flexShrink:0 }}>
-                            <svg width="8" height="8" fill="#a855f7" stroke="#a855f7" strokeWidth="1.5" viewBox="0 0 24 24">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3" fill="#fff" stroke="#fff"/>
-                            </svg>
-                          </span>
-                        );
-                        if (s.loai?.value === "lt") return (
-                          <span key={i} title="Lý thuyết" style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                            width:14, height:14, borderRadius:"50%", background:"#e8eaf6", border:"1px solid #c5cae9", flexShrink:0 }}>
-                            <svg width="8" height="8" fill="none" stroke="#5c6bc0" strokeWidth="2.2" viewBox="0 0 24 24">
-                              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                            </svg>
-                          </span>
-                        );
-                        return (
-                          <span key={i} title="Thực hành" style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                            width:14, height:14, borderRadius:"50%", background:"#e0f2fe", border:"1px solid #bae6fd", flexShrink:0 }}>
-                            <svg width="8" height="8" fill="none" stroke="#0891b2" strokeWidth="2.2" viewBox="0 0 24 24">
-                              <path d="M9 3h6v7l3 9H6l3-9V3z"/><line x1="6" y1="3" x2="18" y2="3"/>
-                            </svg>
-                          </span>
-                        );
-                      })}
-                      {cell.sessions.length > 4 && (
-                        <span style={{ fontSize:9, color:"#9ca3af", lineHeight:1, alignSelf:"center" }}>
-                          +{cell.sessions.length-4}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* Sáng / Chiều / Tối bars */}
+                  {(() => {
+                    const hasSang = cell.sessions.some(s => {
+                      if (s.type === "hoc") return (s.buoi?.value || s.rule?.buoi) === "sang";
+                      if (s.type === "thi") return true; // thi thường buổi sáng, hiện ở sang
+                      if (s.type === "day") {
+                        const st = s.row?.startTime || "";
+                        if (!st) return true; // không rõ giờ → show sáng
+                        const h = parseInt(st.split(":")[0], 10);
+                        return h < 12;
+                      }
+                      return false;
+                    });
+                    const hasChieu = cell.sessions.some(s => {
+                      if (s.type === "hoc") return (s.buoi?.value || s.rule?.buoi) === "chieu";
+                      if (s.type === "thi") return false;
+                      if (s.type === "day") {
+                        const st = s.row?.startTime || "";
+                        if (!st) return false;
+                        const h = parseInt(st.split(":")[0], 10);
+                        return h >= 12 && h < 17;
+                      }
+                      return false;
+                    });
+                    const hasToi = cell.sessions.some(s => {
+                      if (s.type === "hoc") return (s.buoi?.value || s.rule?.buoi) === "toi";
+                      if (s.type === "thi") return false;
+                      if (s.type === "day") {
+                        const st = s.row?.startTime || "";
+                        if (!st) return false;
+                        const h = parseInt(st.split(":")[0], 10);
+                        return h >= 17;
+                      }
+                      return false;
+                    });
+                    const anySession = hasSang || hasChieu || hasToi;
+                    return (
+                      <div style={{ display:"flex", gap:2, marginTop:4, width: isMobile?32:28, justifyContent:"center" }}>
+                        {[
+                          { active: hasSang,  color: "#f97316", title: "Sáng" },
+                          { active: hasChieu, color: "#22c55e", title: "Chiều" },
+                          { active: hasToi,   color: "#3b82f6", title: "Tối" },
+                        ].map((b, bi) => (
+                          <div key={bi} title={b.title} style={{
+                            flex: 1, height: isMobile?5:4, borderRadius:3,
+                            background: b.active ? b.color : "#e5e7eb",
+                            opacity: b.active ? 1 : 0.35,
+                            transition:"background .15s",
+                            boxShadow: b.active ? `0 1px 4px ${b.color}66` : "none",
+                          }} />
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </button>
               );
             })}
