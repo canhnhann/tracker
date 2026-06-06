@@ -247,11 +247,13 @@ const IC = {
   wallet:  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/><circle cx="16" cy="14" r="1" fill="currentColor"/></svg>,
   arrowLeft:<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
   arrowRight:<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+  home:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
   sun:     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>,
   moon:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
 };
 
 const NAV_TABS = [
+  { id:"homnay",   label:"Hôm nay",       icon:"home"     },
   { id:"monhoc",    label:"Môn học",       icon:"book"     },
   { id:"soanbai",  label:"Lớp dạy",       icon:"pen"      },
   { id:"lichhoc",  label:"Lịch trình",    icon:"calendar" },
@@ -277,19 +279,129 @@ const PERIOD_COLORS = {
 
 /* ─── NavBar ─── */
 function NavBar({ activeTab, onTabChange, theme, isMobile }) {
-  const { accent, accentText } = theme;
+  const { accent, accentText, accentLight } = theme;
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = React.useRef(null);
+
+  const mainTab = NAV_TABS.find(t => t.id === "homnay");
+  const subTabs = NAV_TABS.filter(t => t.id !== "homnay");
+  const activeSubTab = subTabs.find(t => t.id === activeTab);
+  const isMenuTabActive = !!activeSubTab;
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("touchstart", handler); };
+  }, [menuOpen]);
+
+  const handleSubTab = (id) => { onTabChange(id); setMenuOpen(false); };
+
+  const ICONS = {
+    book: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+    pen: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
+    calendar: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    wallet: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
+    chart: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+  };
+
   return (
-    <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 8px rgba(0,0,0,.05)"}}>
-      <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",overflowX:"auto",overflowY:"hidden",scrollbarWidth:"none",WebkitOverflowScrolling:"touch",display:"flex",padding:isMobile?"0 4px":"0 20px"}}>
-        {NAV_TABS.map(tab => {
-          const active = activeTab === tab.id;
+    <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:200,boxShadow:"0 1px 8px rgba(0,0,0,.05)"}}>
+      <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",display:"flex",padding:isMobile?"0 4px":"0 20px",alignItems:"stretch"}}>
+
+        {/* Tab Hôm nay */}
+        {(() => {
+          const active = activeTab === "homnay";
           return (
-            <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{display:"flex",alignItems:"center",gap:isMobile?5:6,padding:isMobile?"11px 12px":"12px 16px",background:"none",border:"none",borderBottom:active?`2.5px solid ${accent}`:"2.5px solid transparent",color:active?accentText:"#9ca3af",fontFamily:"inherit",fontSize:15,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"color .15s, border-color .15s",marginBottom:-1}}>
-              <span style={isMobile?{display:"inline-flex",alignItems:"center",justifyContent:"center",width:26,height:26,borderRadius:8,background:active?`${accent}18`:"#f3f4f6",color:active?accent:"#9ca3af",flexShrink:0,transition:"background .15s, color .15s"}:{color:active?accent:"#d1d5db",flexShrink:0}}>{IC[tab.icon]}</span>
-              {tab.label}
+            <button onClick={() => onTabChange("homnay")} style={{display:"flex",alignItems:"center",gap:isMobile?5:6,padding:isMobile?"11px 14px":"12px 18px",background:"none",border:"none",borderBottom:active?`2.5px solid ${accent}`:"2.5px solid transparent",color:active?accentText:"#9ca3af",fontFamily:"inherit",fontSize:15,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"color .15s, border-color .15s",marginBottom:-1}}>
+              <span style={{color:active?accent:"#d1d5db",flexShrink:0}}>{IC.home}</span>
             </button>
           );
-        })}
+        })()}
+
+        {/* Spacer */}
+        <div style={{flex:1}} />
+
+        {/* Separator */}
+        <div style={{width:1,background:"#f3f4f6",margin:"10px 0",flexShrink:0}} />
+
+        {/* + Menu button */}
+        <div ref={menuRef} style={{position:"relative",display:"flex",alignItems:"stretch"}}>
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            style={{display:"flex",alignItems:"center",gap:isMobile?5:6,padding:isMobile?"11px 14px":"12px 18px",background:"none",border:"none",
+              borderBottom: isMenuTabActive ? `2.5px solid ${accent}` : menuOpen ? `2.5px solid ${accent}88` : "2.5px solid transparent",
+              color: isMenuTabActive ? accentText : menuOpen ? accent : "#9ca3af",
+              fontFamily:"inherit",fontSize:15,fontWeight: isMenuTabActive?700:500,cursor:"pointer",whiteSpace:"nowrap",
+              flexShrink:0,transition:"color .15s, border-color .15s",marginBottom:-1}}>
+            {/* Active sub-tab label when menu closed */}
+            {!menuOpen && activeSubTab ? (
+              <>
+                <span style={{color:accent,flexShrink:0,transition:"color .15s"}}>{IC[activeSubTab.icon]}</span>
+                <span style={{fontSize:15,fontWeight:700}}>{activeSubTab.label}</span>
+                <span style={{marginLeft:2,fontSize:11,color:accent,transition:"transform .2s",display:"inline-block",transform:"rotate(0deg)"}}>▾</span>
+              </>
+            ) : (
+              <span style={{
+                display:"inline-flex",alignItems:"center",justifyContent:"center",
+                width:26,height:26,borderRadius:"50%",
+                background: menuOpen ? accent : isMenuTabActive ? accentLight : "#f3f4f6",
+                color: menuOpen ? "#fff" : isMenuTabActive ? accent : "#9ca3af",
+                transition:"background .2s, color .2s, transform .25s",
+                transform: menuOpen ? "rotate(45deg)" : "rotate(0deg)",
+                flexShrink:0,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/>
+                </svg>
+              </span>
+            )}
+          </button>
+
+          {/* Dropdown panel */}
+          <div style={{
+            position:"absolute",top:"calc(100% + 4px)",right:0,
+            background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,
+            boxShadow:"0 8px 32px rgba(0,0,0,.13)",
+            minWidth:200,overflow:"hidden",
+            pointerEvents: menuOpen ? "auto" : "none",
+            opacity: menuOpen ? 1 : 0,
+            transform: menuOpen ? "translateY(0) scale(1)" : "translateY(-8px) scale(0.97)",
+            transformOrigin:"top right",
+            transition:"opacity .18s ease, transform .18s ease",
+            zIndex:300,
+          }}>
+            <div style={{padding:"6px 6px"}}>
+              {subTabs.map((tab, i) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button key={tab.id} onClick={() => handleSubTab(tab.id)} style={{
+                    display:"flex",alignItems:"center",gap:10,width:"100%",
+                    padding:isMobile?"12px 14px":"10px 14px",
+                    background: active ? accentLight : "transparent",
+                    border:"none",borderRadius:10,cursor:"pointer",
+                    fontFamily:"inherit",fontSize:15,fontWeight:active?700:500,
+                    color: active ? accentText : "#374151",
+                    transition:"background .12s",
+                    textAlign:"left",
+                  }}
+                  onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="#f9fafb"; }}
+                  onMouseLeave={e=>{ if(!active) e.currentTarget.style.background="transparent"; }}
+                  >
+                    <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:30,height:30,borderRadius:8,background:active?`${accent}22`:"#f3f4f6",color:active?accent:"#9ca3af",flexShrink:0,transition:"background .12s, color .12s"}}>
+                      {ICONS[tab.icon]}
+                    </span>
+                    {tab.label}
+                    {active && <span style={{marginLeft:"auto",fontSize:13,color:accent}}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -2970,6 +3082,213 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
     </div>
   );
 }
+/* ─── HomNayPage ─── */
+function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData }) {
+  const { accent, accentLight, accentText } = theme;
+  const now = new Date();
+  const todayStr = toDateKey(now);
+  const dayName = DAYS_VN_FULL[now.getDay()];
+  const dateStr = `${now.getDate()} tháng ${now.getMonth()+1}, ${now.getFullYear()}`;
+
+  // ── Build today's sessions (same logic as LichHocMonthView) ──
+  const sessions = [];
+  const semStart = (lichHocData||{}).semesterStart || "";
+  const year = now.getFullYear(), month = now.getMonth();
+  const DOW_MAP_VN = {"Thứ 2":1,"Thứ 3":2,"Thứ 4":3,"Thứ 5":4,"Thứ 6":5,"Thứ 7":6,"Chủ Nhật":0};
+
+  // Lịch học (quy luật)
+  ((lichHocData||{}).subjects || []).forEach(subj => {
+    (subj.rules || []).forEach(rule => {
+      if (generateDaysInMonth(rule, year, month, semStart).includes(todayStr)) {
+        const loai = LOAI_OPTIONS.find(l=>l.value===rule.loai)||LOAI_OPTIONS[0];
+        const buoi = BUOI_OPTIONS.find(b=>b.value===rule.buoi)||BUOI_OPTIONS[0];
+        sessions.push({ type:"hoc", subjName:subj.name, rule, loai, buoi, isSpecific:false });
+      }
+    });
+    // Lịch học (cụ thể)
+    (subj.specifics || []).forEach(sp => {
+      if (sp.date === todayStr) {
+        const loai = LOAI_OPTIONS.find(l=>l.value===sp.loai)||LOAI_OPTIONS[0];
+        const buoi = BUOI_OPTIONS.find(b=>b.value===sp.buoi)||BUOI_OPTIONS[0];
+        sessions.push({ type:"hoc", subjName:subj.name, rule:sp, loai, buoi, isSpecific:true });
+      }
+    });
+  });
+
+  // Lịch thi
+  (examSubjects || []).forEach(subj => {
+    if (subj.examDate === todayStr)
+      sessions.push({ type:"thi", subjName:subj.name, examDate:subj.examDate, examTime:subj.examTime, examRoom:subj.examRoom });
+  });
+
+  // Lịch dạy
+  ((soanBaiData||{}).subjects || []).forEach(subj => {
+    (subj.scheduleRows || []).forEach(row => {
+      if (!row.day) return;
+      const targetDow = DOW_MAP_VN[row.day];
+      if (targetDow !== undefined && now.getDay() === targetDow)
+        sessions.push({ type:"day", subjName:subj.name, row });
+    });
+  });
+
+  // ── Group by buoi ──
+  const getBuoi = (s) => {
+    if (s.type === "hoc") return s.buoi?.value || "sang";
+    if (s.type === "thi") {
+      if (!s.examTime) return "sang";
+      const h = parseInt((s.examTime||"").split(":")[0], 10);
+      return h >= 17 ? "toi" : h >= 12 ? "chieu" : "sang";
+    }
+    if (s.type === "day") {
+      const h = parseInt((s.row?.startTime||"").split(":")[0], 10);
+      if (isNaN(h)) return "sang";
+      return h >= 17 ? "toi" : h >= 12 ? "chieu" : "sang";
+    }
+    return "sang";
+  };
+
+  const BUOI_CONFIG = [
+    { value:"sang",  label:"Sáng",  emoji:"🌅", time:"07:00 – 11:00", color:"#f97316", bg:"#fff7ed", border:"#fed7aa", lightBg:"#fff7ed" },
+    { value:"chieu", label:"Chiều", emoji:"☀️", time:"13:30 – 17:00", color:"#16a34a", bg:"#f0fdf4", border:"#86efac", lightBg:"#f0fdf4" },
+    { value:"toi",   label:"Tối",   emoji:"🌙", time:"17:30 – 21:00", color:"#2563eb", bg:"#eff6ff", border:"#93c5fd", lightBg:"#eff6ff" },
+  ];
+
+  const grouped = { sang: [], chieu: [], toi: [] };
+  sessions.forEach(s => { const b = getBuoi(s); grouped[b] = grouped[b]||[]; grouped[b].push(s); });
+
+  const totalCount = sessions.length;
+
+  return (
+    <div style={{ padding: isMobile?"16px 14px 32px":"20px 0 40px", maxWidth:600, margin:"0 auto" }}>
+
+      {/* Header */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontSize: isMobile?22:20, fontWeight:800, color:"#111827" }}>{dayName}</div>
+        <div style={{ fontSize:14, color:"#9ca3af", fontWeight:500, marginTop:2 }}>{dateStr}
+          {totalCount > 0 && <span style={{ marginLeft:8, background:accentLight, color:accentText,
+            borderRadius:20, padding:"2px 10px", fontSize:13, fontWeight:700 }}>{totalCount} sự kiện</span>}
+        </div>
+      </div>
+
+      {totalCount === 0 ? (
+        <div style={{ textAlign:"center", padding:"60px 0", color:"#d1d5db" }}>
+          <div style={{ fontSize:42, marginBottom:12 }}>🎉</div>
+          <div style={{ fontSize:isMobile?15:14, fontWeight:600, color:"#9ca3af" }}>Hôm nay không có lịch nào</div>
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          {BUOI_CONFIG.map(bc => {
+            const list = grouped[bc.value] || [];
+            return (
+              <div key={bc.value}>
+                {/* Buoi header */}
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                  <div style={{ width:3, height:18, borderRadius:2, background: list.length ? bc.color : "#e5e7eb", flexShrink:0 }} />
+                  <span style={{ fontSize:14, fontWeight:800, color: list.length ? bc.color : "#d1d5db",
+                    letterSpacing:".04em" }}>{bc.emoji} {bc.label}</span>
+                  <span style={{ fontSize:12, color:"#d1d5db", fontWeight:500 }}>{bc.time}</span>
+                  {list.length > 0 && <span style={{ marginLeft:"auto", fontSize:12, fontWeight:700,
+                    color: bc.color, background: bc.bg, border:`1px solid ${bc.border}`,
+                    borderRadius:20, padding:"1px 8px" }}>{list.length}</span>}
+                </div>
+
+                {list.length === 0 ? (
+                  <div style={{ background:"#fafafa", border:"1px dashed #f0f0f0", borderRadius:10,
+                    padding: isMobile?"10px 14px":"8px 14px", fontSize:13, color:"#d1d5db", fontWeight:500 }}>
+                    Trống
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {list.map((s, i) => {
+                      // ── Lịch thi ──
+                      if (s.type === "thi") {
+                        return (
+                          <div key={i} style={{ background:"#fef2f2", border:"1.5px solid #fecaca",
+                            borderRadius:12, padding: isMobile?"12px 14px":"10px 14px",
+                            display:"flex", gap:12, alignItems:"flex-start" }}>
+                            <div style={{ width:36, height:36, borderRadius:10, background:"#fee2e2",
+                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:18 }}>🔔</div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize: isMobile?15:14, fontWeight:800, color:"#111827", marginBottom:4 }}>{s.subjName}</div>
+                              <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+                                <span style={{ fontSize:12, fontWeight:700, background:"#dc2626", color:"#fff", borderRadius:20, padding:"2px 9px" }}>Lịch thi</span>
+                                {s.examTime && <span style={{ fontSize:13, color:"#dc2626", fontWeight:600 }}>⏰ {s.examTime}</span>}
+                                {s.examRoom && <span style={{ fontSize:13, color:"#6b7280" }}>📍 {s.examRoom}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      // ── Lịch dạy ──
+                      if (s.type === "day") {
+                        const row = s.row || {};
+                        return (
+                          <div key={i} style={{ background:"#faf5ff", border:"1.5px solid #e9d5ff",
+                            borderRadius:12, padding: isMobile?"12px 14px":"10px 14px",
+                            display:"flex", gap:12, alignItems:"flex-start" }}>
+                            <div style={{ width:36, height:36, borderRadius:10, background:"#f3e8ff",
+                              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:18 }}>✏️</div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize: isMobile?15:14, fontWeight:800, color:"#111827", marginBottom:4 }}>{s.subjName}</div>
+                              <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+                                <span style={{ fontSize:12, fontWeight:700, background:"#a855f7", color:"#fff", borderRadius:20, padding:"2px 9px" }}>Lịch dạy</span>
+                                {row.startTime && row.endTime && <span style={{ fontSize:13, color:"#7c3aed", fontWeight:600 }}>⏰ {row.startTime} – {row.endTime}</span>}
+                                {row.room && <span style={{ fontSize:13, color:"#6b7280" }}>📍 {row.room}</span>}
+                                {row.note && <span style={{ fontSize:13, color:"#9ca3af" }}>{row.note}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      // ── Lịch học ──
+                      const buoi = s.buoi || BUOI_OPTIONS[0];
+                      const loai = s.loai || LOAI_OPTIONS[0];
+                      const rule = s.rule || {};
+                      const timeLabel = rule.startTime && rule.endTime
+                        ? `${rule.startTime} – ${rule.endTime}`
+                        : rule.tietFrom
+                          ? `Tiết ${rule.tietFrom}${rule.tietTo && rule.tietTo !== rule.tietFrom ? `–${rule.tietTo}` : ""}`
+                          : buoi.time;
+                      return (
+                        <div key={i} style={{ background: buoi.bg, border:`1.5px solid ${buoi.border}`,
+                          borderRadius:12, padding: isMobile?"12px 14px":"10px 14px",
+                          display:"flex", gap:12, alignItems:"flex-start" }}>
+                          <div style={{ width:36, height:36, borderRadius:10,
+                            background: loai.value==="lt" ? "#e8eaf6" : "#e0f2fe",
+                            display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                            {loai.value === "lt"
+                              ? <svg width="18" height="18" fill="none" stroke="#5c6bc0" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                              : <svg width="18" height="18" fill="none" stroke="#0891b2" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 3h6v7l3 9H6l3-9V3z"/><line x1="6" y1="3" x2="18" y2="3"/></svg>
+                            }
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, flexWrap:"wrap" }}>
+                              <span style={{ fontSize: isMobile?15:14, fontWeight:800, color:"#111827" }}>{s.subjName}</span>
+                              {s.isSpecific && <span style={{ fontSize:11, fontWeight:700, background:"#fef3c7",
+                                color:"#b45309", borderRadius:4, padding:"1px 5px" }}>📌 Cụ thể</span>}
+                            </div>
+                            <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+                              <span style={{ fontSize:12, fontWeight:700, background:loai.bg,
+                                color:loai.color, borderRadius:20, padding:"2px 9px", border:`1px solid ${loai.color}33` }}>{loai.label}</span>
+                              <span style={{ fontSize:13, color: buoi.color, fontWeight:600 }}>⏰ {timeLabel}</span>
+                              {rule.room && <span style={{ fontSize:13, color:"#6b7280" }}>📍 {rule.room}</span>}
+                              {rule.note && <span style={{ fontSize:13, color:"#9ca3af" }}>{rule.note}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── LichHocMonthView ─── */
 function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiData }) {
   const { accent, accentLight, accentText } = theme;
@@ -4516,7 +4835,7 @@ function App() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [showLichThi, setShowLichThi] = useState(false);
   const [showImportLichThi, setShowImportLichThi] = useState(false);
-  const [activeTab, setActiveTab] = useState("monhoc");
+  const [activeTab, setActiveTab] = useState("homnay");
   const [syncId, setSyncId] = useState(() => {
     let id = localStorage.getItem("studytodo_uid");
     if (!id) { id = uid(); localStorage.setItem("studytodo_uid", id); }
@@ -4684,6 +5003,8 @@ function App() {
           )}
 
         </div>
+      ) : activeTab==="homnay" ? (
+        <HomNayPage theme={theme} isMobile={isMobile} lichHocData={lichHocData} examSubjects={data.subjects} soanBaiData={soanBaiData} />
       ) : activeTab==="lichhoc" ? (
         <CalendarPage theme={theme} isMobile={isMobile} schedule={schedule} onScheduleChange={setSchedule} subjects={data.subjects} soanBaiData={soanBaiData} lichHocData={lichHocData} onLichHocChange={setLichHocData} />
       ) : activeTab==="soanbai" ? (
