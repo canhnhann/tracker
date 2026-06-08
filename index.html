@@ -432,10 +432,9 @@ function checkAndResetTodos(todos, setTodos) {
   const today = getTodayStr();
   const lastDay = getLastSavedDay();
   if (lastDay && lastDay !== today) {
-    // Read directly from localStorage to avoid stale React state
+    // Đọc thẳng từ localStorage để tránh React state chưa kịp load
     const currentTodos = loadTodos();
     if (currentTodos.length > 0) {
-      // Archive yesterday
       const hist = loadTodoHistory();
       hist[lastDay] = currentTodos;
       // Keep only last 14 days
@@ -4334,6 +4333,7 @@ function App() {
       if (d.soanbai) { try { const v = JSON.parse(d.soanbai); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setSoanBaiData(safe); saveSoanBai(safe); } catch {} }
       if (d.taichinh) { try { const v = JSON.parse(d.taichinh); const safe = { dichLam: v?.dichLam||0, chiCungXang: v?.chiCungXang||0, chiCungTietKiem: v?.chiCungTietKiem||0, chiTieuHangNgay: Array.isArray(v?.chiTieuHangNgay)?v.chiTieuHangNgay:[], chiCungList: Array.isArray(v?.chiCungList)?v.chiCungList:[], thuNhapList: Array.isArray(v?.thuNhapList)?v.thuNhapList:[] }; setTaiChinhState(safe); saveTaiChinh(safe); } catch {} }
       if (d.thoikhoa) { try { const v = JSON.parse(d.thoikhoa); const safe = { subjects: Array.isArray(v?.subjects)?v.subjects:[], semesterStart: v?.semesterStart||"" }; setLichHocDataState(safe); saveLichHoc(safe); } catch {} }
+      if (d.todos) { try { const v = JSON.parse(d.todos); if (Array.isArray(v)) { saveTodos(v); setTodosState(v); } } catch {} }
       // Tắt cờ sau khi React xử lý xong state (nextTick)
       setTimeout(() => { isRemoteUpdate.current = false; isFirstLoad.current = false; }, 0);
     });
@@ -4351,6 +4351,7 @@ function App() {
   useEffect(() => { if (!isMounted.current) return; saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { if (!isMounted.current) return; saveTaiChinh(taiChinh); pushToFirebase("taichinh", taiChinh); }, [taiChinh]);
   useEffect(() => { if (!isMounted.current) return; saveLichHoc(lichHocData); pushToFirebase("thoikhoa", lichHocData); }, [lichHocData]);
+  useEffect(() => { if (!isMounted.current) return; saveTodos(todos); pushToFirebase("todos", todos); }, [todos]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
