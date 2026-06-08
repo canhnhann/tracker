@@ -104,7 +104,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDVdPhYUoC3S3yorWTnu1gE_RZIFXoXK_4",
@@ -120,7 +120,7 @@
   // Expose ra window để React dùng
   window._db = db;
   window._fbDoc = (col, uid) => doc(db, col, uid || localStorage.getItem("studytodo_uid") || "default");
-  window._onSnapshot = onSnapshot;
+  window._getDoc = getDoc;
   window._setDoc = setDoc;
   window._fbReady = true;
 
@@ -4317,37 +4317,21 @@ function App() {
   useEffect(() => { if (window._appReady) window._appReady(); }, []);
 
   useEffect(() => {
-    if (!fbReady || !window._onSnapshot || !window._fbDoc) return;
-    try {
-    const unsub = window._onSnapshot(window._fbDoc("studytodo"), (snap) => {
-      if (!snap.exists()) {
-        // Tài liệu chưa tồn tại → push dữ liệu local lên lần đầu
+    if (!fbReady || !window._getDoc || !window._fbDoc) return;
+    (async () => {
+      try {
+        const snap = await window._getDoc(window._fbDoc("studytodo"));
+        if (!snap.exists()) return;
+        const d = snap.data();
+        if (d.monhoc) { try { const v = JSON.parse(d.monhoc); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setData(safe); saveData(safe); } catch {} }
+        if (d.lichhoc) { try { const v = JSON.parse(d.lichhoc); setSchedule(v || {}); saveSchedule(v || {}); } catch {} }
+        if (d.soanbai) { try { const v = JSON.parse(d.soanbai); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setSoanBaiData(safe); saveSoanBai(safe); } catch {} }
+        if (d.taichinh) { try { const v = JSON.parse(d.taichinh); const safe = { dichLam: v?.dichLam||0, chiCungXang: v?.chiCungXang||0, chiCungTietKiem: v?.chiCungTietKiem||0, chiTieuHangNgay: Array.isArray(v?.chiTieuHangNgay)?v.chiTieuHangNgay:[], chiCungList: Array.isArray(v?.chiCungList)?v.chiCungList:[], thuNhapList: Array.isArray(v?.thuNhapList)?v.thuNhapList:[] }; setTaiChinhState(safe); saveTaiChinh(safe); } catch {} }
+        if (d.thoikhoa) { try { const v = JSON.parse(d.thoikhoa); const safe = { subjects: Array.isArray(v?.subjects)?v.subjects:[], semesterStart: v?.semesterStart||"" }; setLichHocDataState(safe); saveLichHoc(safe); } catch {} }
+        if (d.todos) { try { const v = JSON.parse(d.todos); if (Array.isArray(v)) { saveTodos(v); setTodosState(v); } } catch {} }
         isFirstLoad.current = false;
-        return;
-      }
-      const d = snap.data();
-      // Bật cờ để pushToFirebase bỏ qua, tránh vòng lặp
-      isRemoteUpdate.current = true;
-      if (d.monhoc) { try { const v = JSON.parse(d.monhoc); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setData(safe); saveData(safe); } catch {} }
-      if (d.lichhoc) { try { const v = JSON.parse(d.lichhoc); setSchedule(v || {}); saveSchedule(v || {}); } catch {} }
-      if (d.soanbai) { try { const v = JSON.parse(d.soanbai); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setSoanBaiData(safe); saveSoanBai(safe); } catch {} }
-      if (d.taichinh) { try { const v = JSON.parse(d.taichinh); const safe = { dichLam: v?.dichLam||0, chiCungXang: v?.chiCungXang||0, chiCungTietKiem: v?.chiCungTietKiem||0, chiTieuHangNgay: Array.isArray(v?.chiTieuHangNgay)?v.chiTieuHangNgay:[], chiCungList: Array.isArray(v?.chiCungList)?v.chiCungList:[], thuNhapList: Array.isArray(v?.thuNhapList)?v.thuNhapList:[] }; setTaiChinhState(safe); saveTaiChinh(safe); } catch {} }
-      if (d.thoikhoa) { try { const v = JSON.parse(d.thoikhoa); const safe = { subjects: Array.isArray(v?.subjects)?v.subjects:[], semesterStart: v?.semesterStart||"" }; setLichHocDataState(safe); saveLichHoc(safe); } catch {} }
-      if (d.todos) { try {
-        const parsed = JSON.parse(d.todos);
-        const cloudTs = parsed._ts || 0;
-        const localTs = parseInt(localStorage.getItem("studytodo_todos_ts") || "0");
-        if (Array.isArray(parsed.list) && cloudTs > localTs) {
-          saveTodos(parsed.list);
-          localStorage.setItem("studytodo_todos_ts", String(cloudTs));
-          setTodosState(parsed.list);
-        }
-      } catch {} }
-      // Tắt cờ sau khi React xử lý xong state (nextTick)
-      setTimeout(() => { isRemoteUpdate.current = false; isFirstLoad.current = false; }, 0);
-    });
-    return () => unsub();
-    } catch(e) { console.error("Snapshot error:", e); }
+      } catch(e) { console.error("Firebase read error:", e); }
+    })();
   }, [fbReady]);
 
   // Ghi lên Firebase + localStorage khi data thay đổi (bỏ qua lần mount đầu tiên)
@@ -4360,13 +4344,7 @@ function App() {
   useEffect(() => { if (!isMounted.current) return; saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { if (!isMounted.current) return; saveTaiChinh(taiChinh); pushToFirebase("taichinh", taiChinh); }, [taiChinh]);
   useEffect(() => { if (!isMounted.current) return; saveLichHoc(lichHocData); pushToFirebase("thoikhoa", lichHocData); }, [lichHocData]);
-  useEffect(() => {
-    if (!isMounted.current) return;
-    saveTodos(todos);
-    const ts = Date.now();
-    localStorage.setItem("studytodo_todos_ts", String(ts));
-    pushToFirebase("todos", { list: todos, _ts: ts });
-  }, [todos]);
+  useEffect(() => { if (!isMounted.current) return; saveTodos(todos); pushToFirebase("todos", todos); }, [todos]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
