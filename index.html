@@ -178,7 +178,7 @@ function useFirebaseSync() {
   const debounceTimers = useRef({});
   const syncOkTimer = useRef(null);
   const isRemoteUpdate = useRef(false); // Cờ: đang nhận từ Firebase
-  const isWriting = useRef(false);      // Cờ: đang ghi lên Firebase
+  const pendingWrites = useRef(0);      // Đếm số lần đang ghi lên Firebase
 
   useEffect(() => {
     if (window._fbReady) return;
@@ -192,19 +192,19 @@ function useFirebaseSync() {
     if (isRemoteUpdate.current) return;
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
     debounceTimers.current[key] = setTimeout(async () => {
+      pendingWrites.current += 1;
       try {
-        isWriting.current = true;
         setSyncing(true);
         await window._setDoc(window._fbDoc("studytodo"), { [key]: JSON.stringify(value) }, { merge: true });
         setSyncOk(true);
         if (syncOkTimer.current) clearTimeout(syncOkTimer.current);
         syncOkTimer.current = setTimeout(() => setSyncOk(false), 3000);
       } catch(e) { console.error("Firebase write error", e); setSyncOk(false); }
-      finally { setSyncing(false); isWriting.current = false; }
+      finally { setSyncing(false); pendingWrites.current -= 1; }
     }, debounceMs);
   }, [fbReady]);
 
-  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, isWriting };
+  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, pendingWrites };
 }
 
 /* ─── Responsive ─── */
@@ -4308,7 +4308,7 @@ function App() {
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
-  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, isWriting } = useFirebaseSync();
+  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, pendingWrites } = useFirebaseSync();
   const isFirstLoad = useRef(true);
 
   // Lắng nghe realtime từ Firebase
@@ -4319,14 +4319,10 @@ function App() {
     if (!fbReady || !window._onSnapshot || !window._fbDoc) return;
     try {
     const unsub = window._onSnapshot(window._fbDoc("studytodo"), (snap) => {
-      if (!snap.exists()) {
-        // Tài liệu chưa tồn tại → push dữ liệu local lên lần đầu
-        isFirstLoad.current = false;
-        return;
-      }
+      // Đang có ghi chưa xong → bỏ qua snapshot này để tránh ghi đè
+      if (pendingWrites.current > 0) return;
+      if (!snap.exists()) { isFirstLoad.current = false; return; }
       const d = snap.data();
-      // Bật cờ để pushToFirebase bỏ qua, tránh vòng lặp
-      if (isWriting.current) return; // Đang ghi lên Firebase, bỏ qua snapshot này
       isRemoteUpdate.current = true;
       if (d.monhoc) { try { const v = JSON.parse(d.monhoc); const safe = { subjects: Array.isArray(v?.subjects) ? v.subjects : [] }; setData(safe); saveData(safe); } catch {} }
       if (d.lichhoc) { try { const v = JSON.parse(d.lichhoc); setSchedule(v || {}); saveSchedule(v || {}); } catch {} }
@@ -4334,8 +4330,8 @@ function App() {
       if (d.taichinh) { try { const v = JSON.parse(d.taichinh); const safe = { dichLam: v?.dichLam||0, chiCungXang: v?.chiCungXang||0, chiCungTietKiem: v?.chiCungTietKiem||0, chiTieuHangNgay: Array.isArray(v?.chiTieuHangNgay)?v.chiTieuHangNgay:[], chiCungList: Array.isArray(v?.chiCungList)?v.chiCungList:[], thuNhapList: Array.isArray(v?.thuNhapList)?v.thuNhapList:[] }; setTaiChinhState(safe); saveTaiChinh(safe); } catch {} }
       if (d.thoikhoa) { try { const v = JSON.parse(d.thoikhoa); const safe = { subjects: Array.isArray(v?.subjects)?v.subjects:[], semesterStart: v?.semesterStart||"" }; setLichHocDataState(safe); saveLichHoc(safe); } catch {} }
       if (d.todos) { try { const v = JSON.parse(d.todos); if (Array.isArray(v)) { saveTodos(v); setTodosState(v); } } catch {} }
-      // Tắt cờ sau khi React xử lý xong state (nextTick)
-      setTimeout(() => { isRemoteUpdate.current = false; isFirstLoad.current = false; }, 0);
+      isRemoteUpdate.current = false;
+      isFirstLoad.current = false;
     });
     return () => unsub();
     } catch(e) { console.error("Snapshot error:", e); }
