@@ -177,7 +177,8 @@ function useFirebaseSync() {
   const [fbReady, setFbReady] = useState(() => !!window._fbReady);
   const debounceTimers = useRef({});
   const syncOkTimer = useRef(null);
-  const isRemoteUpdate = useRef(false); // Cờ: đang nhận từ Firebase, không ghi lại
+  const isRemoteUpdate = useRef(false);
+  const pendingWrites = useRef(0);
 
   useEffect(() => {
     if (window._fbReady) return;
@@ -186,26 +187,24 @@ function useFirebaseSync() {
     return () => window.removeEventListener("firebase-ready", handler);
   }, []);
 
-  const pushToFirebase = useCallback(async (key, value) => {
+  const pushToFirebase = useCallback(async (key, value, debounceMs = 800) => {
     if (!fbReady || !window._setDoc || !window._fbDoc) return;
-    // Nếu đang nhận từ Firebase thì bỏ qua, tránh vòng lặp
     if (isRemoteUpdate.current) return;
-    // Debounce 800ms mỗi key riêng biệt
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
     debounceTimers.current[key] = setTimeout(async () => {
+      pendingWrites.current += 1;
       try {
         setSyncing(true);
         await window._setDoc(window._fbDoc("studytodo"), { [key]: JSON.stringify(value) }, { merge: true });
         setSyncOk(true);
-        // Tự reset dấu ✓ sau 3 giây
         if (syncOkTimer.current) clearTimeout(syncOkTimer.current);
         syncOkTimer.current = setTimeout(() => setSyncOk(false), 3000);
       } catch(e) { console.error("Firebase write error", e); setSyncOk(false); }
-      finally { setSyncing(false); }
-    }, 800);
+      finally { setSyncing(false); pendingWrites.current -= 1; }
+    }, debounceMs);
   }, [fbReady]);
 
-  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate };
+  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, pendingWrites };
 }
 
 /* ─── Responsive ─── */
@@ -280,130 +279,122 @@ const PERIOD_COLORS = {
 
 /* ─── NavBar ─── */
 function NavBar({ activeTab, onTabChange, theme, isMobile }) {
-  const { accent, accentText, accentLight } = theme;
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const menuRef = React.useRef(null);
+  const NAV_ITEMS = [
+    { id:"homnay",   icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>, label:"Hôm nay" },
+    { id:"monhoc",   icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>, label:"Môn học" },
+    { id:"lichhoc",  icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, label:"Lịch" },
+    { id:"todo",     icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>, label:"To-do" },
+    { id:"more",     icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>, label:"Thêm" },
+  ];
 
-  const mainTab = NAV_TABS.find(t => t.id === "homnay");
-  const subTabs = NAV_TABS.filter(t => t.id !== "homnay");
-  const activeSubTab = subTabs.find(t => t.id === activeTab);
-  const isMenuTabActive = !!activeSubTab;
+  const MORE_ITEMS = [
+    { id:"soanbai",  icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>, label:"Lớp dạy" },
+    { id:"taichinh", icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>, label:"Tài chính" },
+  ];
 
-  // Close on outside click
+  const [showMore, setShowMore] = React.useState(false);
+  const moreRef = React.useRef(null);
+  const isMoreActive = ["soanbai","taichinh"].includes(activeTab);
+
   React.useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("touchstart", handler);
-    return () => { document.removeEventListener("mousedown", handler); document.removeEventListener("touchstart", handler); };
-  }, [menuOpen]);
-
-  const handleSubTab = (id) => { onTabChange(id); setMenuOpen(false); };
-
-  const ICONS = {
-    book: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
-    pen: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
-    calendar: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-    wallet: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>,
-    chart: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
-    check: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
-  };
+    if (!showMore) return;
+    const fn = (e) => { if (moreRef.current && !moreRef.current.contains(e.target)) setShowMore(false); };
+    document.addEventListener("mousedown", fn);
+    document.addEventListener("touchstart", fn);
+    return () => { document.removeEventListener("mousedown", fn); document.removeEventListener("touchstart", fn); };
+  }, [showMore]);
 
   return (
-    <div style={{background:"#fff",borderBottom:"1px solid #e5e7eb",position:"sticky",top:0,zIndex:200,boxShadow:"0 1px 8px rgba(0,0,0,.05)"}}>
-      <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",display:"flex",padding:isMobile?"0 4px":"0 20px",alignItems:"stretch"}}>
-
-        {/* Tab Hôm nay */}
-        {(() => {
-          const active = activeTab === "homnay";
+    <div style={{
+      position:"fixed", bottom:0, left:0, right:0, zIndex:300,
+      background:"#fff",
+      borderTop:"1px solid #f0f0f0",
+      paddingBottom:"env(safe-area-inset-bottom)",
+      boxShadow:"0 -4px 24px rgba(0,0,0,.07)",
+    }}>
+      <div style={{
+        maxWidth: isMobile?"100%":480,
+        margin:"0 auto",
+        display:"flex",
+        alignItems:"stretch",
+        height:62,
+      }}>
+        {NAV_ITEMS.map(item => {
+          const isMore = item.id === "more";
+          const active = isMore ? isMoreActive : activeTab === item.id;
           return (
-            <button onClick={() => onTabChange("homnay")} style={{display:"flex",alignItems:"center",gap:isMobile?5:6,padding:isMobile?"11px 14px":"12px 18px",background:"none",border:"none",borderBottom:active?`2.5px solid ${accent}`:"2.5px solid transparent",color:active?accentText:"#9ca3af",fontFamily:"inherit",fontSize:15,fontWeight:active?700:500,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,transition:"color .15s, border-color .15s",marginBottom:-1}}>
-              <span style={{color:active?accent:"#d1d5db",flexShrink:0}}>{IC.home}</span>
-            </button>
-          );
-        })()}
+            <div key={item.id} ref={isMore ? moreRef : null}
+              style={{flex:1, position:"relative", display:"flex"}}>
+              <button
+                onClick={() => {
+                  if (isMore) setShowMore(v => !v);
+                  else { onTabChange(item.id); setShowMore(false); }
+                }}
+                style={{
+                  flex:1, display:"flex", flexDirection:"column",
+                  alignItems:"center", justifyContent:"center", gap:3,
+                  background:"none", border:"none", cursor:"pointer",
+                  color: active ? "#111" : "#aaa",
+                  fontFamily:"inherit",
+                  transition:"color .15s",
+                  padding:"8px 0",
+                  position:"relative",
+                }}>
+                {/* Active dot */}
+                {active && (
+                  <span style={{
+                    position:"absolute", top:8, width:4, height:4,
+                    borderRadius:"50%", background:"#111",
+                  }}/>
+                )}
+                <span style={{
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  width:36, height:36, borderRadius:12,
+                  background: active ? "#111" : "transparent",
+                  color: active ? "#fff" : "#aaa",
+                  transition:"background .18s, color .18s",
+                }}>
+                  {item.icon}
+                </span>
+                <span style={{fontSize:10, fontWeight: active?700:500, letterSpacing:".02em"}}>
+                  {isMore && isMoreActive
+                    ? MORE_ITEMS.find(m=>m.id===activeTab)?.label || item.label
+                    : item.label}
+                </span>
+              </button>
 
-        {/* Spacer */}
-        <div style={{flex:1}} />
-
-        {/* Separator */}
-        <div style={{width:1,background:"#f3f4f6",margin:"10px 0",flexShrink:0}} />
-
-        {/* + Menu button */}
-        <div ref={menuRef} style={{position:"relative",display:"flex",alignItems:"stretch"}}>
-          <button
-            onClick={() => setMenuOpen(v => !v)}
-            style={{display:"flex",alignItems:"center",gap:isMobile?5:6,padding:isMobile?"11px 14px":"12px 18px",background:"none",border:"none",
-              borderBottom: isMenuTabActive ? `2.5px solid ${accent}` : menuOpen ? `2.5px solid ${accent}88` : "2.5px solid transparent",
-              color: isMenuTabActive ? accentText : menuOpen ? accent : "#9ca3af",
-              fontFamily:"inherit",fontSize:15,fontWeight: isMenuTabActive?700:500,cursor:"pointer",whiteSpace:"nowrap",
-              flexShrink:0,transition:"color .15s, border-color .15s",marginBottom:-1}}>
-            {/* Active sub-tab label when menu closed */}
-            {!menuOpen && activeSubTab ? (
-              <>
-                <span style={{color:accent,flexShrink:0,transition:"color .15s"}}>{IC[activeSubTab.icon]}</span>
-                <span style={{fontSize:15,fontWeight:700}}>{activeSubTab.label}</span>
-                <span style={{marginLeft:2,fontSize:11,color:accent,transition:"transform .2s",display:"inline-block",transform:"rotate(0deg)"}}>▾</span>
-              </>
-            ) : (
-              <span style={{
-                display:"inline-flex",alignItems:"center",justifyContent:"center",
-                width:26,height:26,borderRadius:"50%",
-                background: menuOpen ? accent : isMenuTabActive ? accentLight : "#f3f4f6",
-                color: menuOpen ? "#fff" : isMenuTabActive ? accent : "#9ca3af",
-                transition:"background .2s, color .2s, transform .25s",
-                transform: menuOpen ? "rotate(45deg)" : "rotate(0deg)",
-                flexShrink:0,
-              }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                  <line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/>
-                </svg>
-              </span>
-            )}
-          </button>
-
-          {/* Dropdown panel */}
-          <div style={{
-            position:"absolute",top:"calc(100% + 4px)",right:0,
-            background:"#fff",border:"1px solid #e5e7eb",borderRadius:14,
-            boxShadow:"0 8px 32px rgba(0,0,0,.13)",
-            minWidth:200,overflow:"hidden",
-            pointerEvents: menuOpen ? "auto" : "none",
-            opacity: menuOpen ? 1 : 0,
-            transform: menuOpen ? "translateY(0) scale(1)" : "translateY(-8px) scale(0.97)",
-            transformOrigin:"top right",
-            transition:"opacity .18s ease, transform .18s ease",
-            zIndex:300,
-          }}>
-            <div style={{padding:"6px 6px"}}>
-              {subTabs.map((tab, i) => {
-                const active = activeTab === tab.id;
-                return (
-                  <button key={tab.id} onClick={() => handleSubTab(tab.id)} style={{
-                    display:"flex",alignItems:"center",gap:10,width:"100%",
-                    padding:isMobile?"12px 14px":"10px 14px",
-                    background: active ? accentLight : "transparent",
-                    border:"none",borderRadius:10,cursor:"pointer",
-                    fontFamily:"inherit",fontSize:15,fontWeight:active?700:500,
-                    color: active ? accentText : "#374151",
-                    transition:"background .12s",
-                    textAlign:"left",
-                  }}
-                  onMouseEnter={e=>{ if(!active) e.currentTarget.style.background="#f9fafb"; }}
-                  onMouseLeave={e=>{ if(!active) e.currentTarget.style.background="transparent"; }}
-                  >
-                    <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:30,height:30,borderRadius:8,background:active?`${accent}22`:"#f3f4f6",color:active?accent:"#9ca3af",flexShrink:0,transition:"background .12s, color .12s"}}>
-                      {ICONS[tab.icon]}
-                    </span>
-                    {tab.label}
-                    {active && <span style={{marginLeft:"auto",fontSize:13,color:accent}}>✓</span>}
-                  </button>
-                );
-              })}
+              {/* More popup */}
+              {isMore && showMore && (
+                <div style={{
+                  position:"absolute", bottom:"calc(100% + 10px)", right:0,
+                  background:"#111", borderRadius:16,
+                  boxShadow:"0 8px 32px rgba(0,0,0,.22)",
+                  overflow:"hidden", minWidth:160,
+                  animation:"fadeIn .15s ease",
+                }}>
+                  {MORE_ITEMS.map(m => {
+                    const a = activeTab === m.id;
+                    return (
+                      <button key={m.id} onClick={()=>{onTabChange(m.id);setShowMore(false);}} style={{
+                        display:"flex", alignItems:"center", gap:12,
+                        width:"100%", padding:"14px 18px",
+                        background: a ? "rgba(255,255,255,.12)" : "none",
+                        border:"none", cursor:"pointer",
+                        fontFamily:"inherit", fontSize:14, fontWeight: a?700:500,
+                        color: a ? "#fff" : "rgba(255,255,255,.65)",
+                        textAlign:"left",
+                      }}>
+                        <span style={{color: a?"#fff":"rgba(255,255,255,.5)"}}>{m.icon}</span>
+                        {m.label}
+                        {a && <span style={{marginLeft:"auto",fontSize:12,color:"rgba(255,255,255,.5)"}}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-
+          );
+        })}
       </div>
     </div>
   );
@@ -3928,7 +3919,7 @@ function App() {
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
-  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate } = useFirebaseSync();
+  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, pendingWrites } = useFirebaseSync();
   const isFirstLoad = useRef(true);
 
   // Lắng nghe realtime từ Firebase
@@ -3969,6 +3960,7 @@ function App() {
   useEffect(() => { if (!isMounted.current) return; saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { if (!isMounted.current) return; saveTaiChinh(taiChinh); pushToFirebase("taichinh", taiChinh); }, [taiChinh]);
   useEffect(() => { if (!isMounted.current) return; saveLichHoc(lichHocData); pushToFirebase("thoikhoa", lichHocData); }, [lichHocData]);
+  useEffect(() => { if (!isMounted.current) return; saveTodos(todos); pushToFirebase("todos", todos, 0); }, [todos]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
@@ -4028,8 +4020,6 @@ function App() {
           </div>
         )}
       </div>
-
-      <NavBar activeTab={activeTab} onTabChange={setActiveTab} theme={theme} isMobile={isMobile} />
 
       {activeTab==="monhoc"?(
         <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",padding:isMobile?`20px 16px ${bottomPad}`:"32px 28px 80px"}}>
@@ -4099,6 +4089,7 @@ function App() {
       ) : (
         <PlaceholderPage tab={currentTabInfo} theme={theme} isMobile={isMobile} />
       )}
+      <NavBar activeTab={activeTab} onTabChange={setActiveTab} theme={theme} isMobile={isMobile} />
       <div style={{textAlign:"center",padding:isMobile?"12px 0 calc(20px + env(safe-area-inset-bottom))":"16px 0 32px",fontSize:13,color:"#d1d5db",fontWeight:500,letterSpacing:".06em"}}>
         made by <span style={{fontWeight:700,color:"#9ca3af"}}>canhan</span>
       </div>
