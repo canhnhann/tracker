@@ -107,7 +107,7 @@
   import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyDVdPhYUoC3S3yorWTnu1gE_RZIFXoXK_4",
+    apiKey: "YOUR_API_KEY", // ← Thay bằng key mới sau khi tạo lại trên Google Cloud Console
     authDomain: "tracker-d4d19.firebaseapp.com",
     projectId: "tracker-d4d19",
     storageBucket: "tracker-d4d19.firebasestorage.app",
@@ -2419,58 +2419,6 @@ function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, t
           })}
         </div>
       )}
-
-      {/* ── Việc cần nhớ hôm nay ── */}
-      {(() => {
-        const todayReminders = (lichHocData?.reminders || [])
-          .filter(r => r.date === todayStr)
-          .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-        if (todayReminders.length === 0) return null;
-        const activeRem = todayReminders.filter(r => !r.done);
-        const doneRem   = todayReminders.filter(r => r.done);
-        return (
-          <div style={{ marginTop: totalCount > 0 ? 28 : 0, marginBottom: 28 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
-              <div style={{ width:3, height:18, borderRadius:2, background:"#f59e0b", flexShrink:0 }} />
-              <span style={{ fontSize:14, fontWeight:800, color:"#92400e", letterSpacing:".04em" }}>
-                🔔 Việc cần nhớ
-              </span>
-              {activeRem.length > 0 && (
-                <span style={{ fontSize:12, fontWeight:700, color:"#92400e",
-                  background:"#fef3c7", borderRadius:20, padding:"1px 8px", border:"1px solid #fde68a" }}>
-                  {activeRem.length}
-                </span>
-              )}
-            </div>
-            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-              {[...activeRem, ...doneRem].map(r => (
-                <div key={r.id} style={{ display:"flex", alignItems:"center", gap:9,
-                  background: r.done ? "#fafafa" : "#fffbeb",
-                  border:`1.5px solid ${r.done ? "#f0f0f0" : "#fde68a"}`,
-                  borderRadius:11, padding:isMobile?"10px 11px":"8px 11px",
-                  opacity: r.done ? 0.65 : 1, transition:"all .15s" }}>
-                  <div style={{ width:8, height:8, borderRadius:"50%",
-                    background: r.done ? "#d1d5db" : "#f59e0b", flexShrink:0 }} />
-                  <span style={{ flex:1, fontSize:isMobile?14:13,
-                    color: r.done ? "#9ca3af" : "#111827",
-                    textDecoration: r.done ? "line-through" : "none",
-                    fontWeight:500, lineHeight:1.4, wordBreak:"break-word" }}>
-                    {r.text}
-                  </span>
-                  {r.time && (
-                    <span style={{ fontSize:11, fontWeight:600,
-                      color: r.done ? "#d1d5db" : "#b45309",
-                      background: r.done ? "#f3f4f6" : "#fef3c7",
-                      borderRadius:5, padding:"2px 7px", flexShrink:0, whiteSpace:"nowrap" }}>
-                      ⏰ {r.time}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── To-do hôm nay ── */}
       {(() => {
