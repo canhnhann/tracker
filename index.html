@@ -413,16 +413,61 @@ function NavBar({ activeTab, onTabChange, theme, isMobile }) {
 
 /* ─── TodoPage ─── */
 const TODO_STORAGE_KEY = "studytodo_todos_v1";
+const TODO_HISTORY_KEY = "studytodo_todos_history_v1";
+function getTodayStr() { return new Date().toISOString().slice(0,10); }
 function loadTodos() {
   try { const d = localStorage.getItem(TODO_STORAGE_KEY); return d ? JSON.parse(d) : []; } catch { return []; }
 }
 function saveTodos(t) { try { localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(t)); } catch {} }
+function loadTodoHistory() {
+  try { const d = localStorage.getItem(TODO_HISTORY_KEY); return d ? JSON.parse(d) : {}; } catch { return {}; }
+}
+function saveTodoHistory(h) { try { localStorage.setItem(TODO_HISTORY_KEY, JSON.stringify(h)); } catch {} }
+
+const TODO_DAY_KEY = "studytodo_todos_day";
+function getLastSavedDay() { return localStorage.getItem(TODO_DAY_KEY) || ""; }
+function setLastSavedDay(d) { localStorage.setItem(TODO_DAY_KEY, d); }
+
+function checkAndResetTodos(todos, setTodos) {
+  const today = getTodayStr();
+  const lastDay = getLastSavedDay();
+  if (lastDay && lastDay !== today && todos.length > 0) {
+    // Archive yesterday
+    const hist = loadTodoHistory();
+    hist[lastDay] = todos;
+    // Keep only last 14 days
+    const keys = Object.keys(hist).sort().reverse();
+    keys.slice(14).forEach(k => delete hist[k]);
+    saveTodoHistory(hist);
+    setTodos([]);
+    saveTodos([]);
+  }
+  setLastSavedDay(today);
+}
+
+function formatHistoryDate(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const days = ["CN","T2","T3","T4","T5","T6","T7"];
+  return `${days[d.getDay()]}, ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+}
 
 function TodoPage({ theme, isMobile, todos, setTodos }) {
   const { accent, accentLight, accentText } = theme;
   const [input, setInput] = React.useState("");
   const [time, setTime] = React.useState("");
+  const [showHistory, setShowHistory] = React.useState(false);
+  const [history, setHistory] = React.useState({});
+  const [expandedDay, setExpandedDay] = React.useState(null);
   const inputRef = React.useRef(null);
+  const didCheck = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!didCheck.current) {
+      didCheck.current = true;
+      checkAndResetTodos(todos, setTodos);
+    }
+    setHistory(loadTodoHistory());
+  }, []);
 
   const addTodo = () => {
     const text = input.trim();
@@ -445,103 +490,233 @@ function TodoPage({ theme, isMobile, todos, setTodos }) {
 
   const doneCount = todos.filter(t => t.done).length;
   const activeCount = todos.filter(t => !t.done).length;
+  const total = todos.length;
+  const progress = total > 0 ? Math.round((doneCount/total)*100) : 0;
+
+  const historyDays = Object.keys(history).sort().reverse();
+
+  // Accent-derived palette
+  const isDark = false;
+  const cardBg = "#fff";
+  const cardDone = "#f8fafc";
+  const borderNormal = "#e8edf3";
+  const borderDone = "#eef2f7";
 
   return (
-    <div style={{ padding: isMobile?"14px 14px 40px":"20px 0 40px", maxWidth:600, margin:"0 auto" }}>
+    <div style={{ padding: isMobile?"14px 14px 60px":"20px 0 60px", maxWidth:600, margin:"0 auto" }}>
 
-      {/* Header */}
-      <div style={{ marginBottom:18, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div>
-          <div style={{ fontSize: isMobile?20:18, fontWeight:800, color:"#111827" }}>To-do</div>
-          <div style={{ fontSize:13, color:"#9ca3af", marginTop:2 }}>
-            {activeCount} việc cần làm{doneCount > 0 ? ` · ${doneCount} đã xong` : ""}
+      {/* ── Header ── */}
+      <div style={{ marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:6 }}>
+          <div>
+            <div style={{ fontSize: isMobile?21:19, fontWeight:800, color:"#111827", letterSpacing:"-.02em" }}>
+              Hôm nay 📋
+            </div>
+            <div style={{ fontSize:12.5, color:"#9ca3af", marginTop:3, fontWeight:500 }}>
+              {new Date().toLocaleDateString("vi-VN",{weekday:"long",day:"numeric",month:"long"})}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            {doneCount > 0 && (
+              <button onClick={clearDone} style={{ fontSize:12, color:"#9ca3af", background:"none",
+                border:"1px solid #e5e7eb", borderRadius:8, padding:"5px 11px", cursor:"pointer", fontWeight:600 }}>
+                Xoá đã xong
+              </button>
+            )}
+            <button onClick={()=>setShowHistory(!showHistory)} title="Lịch sử" style={{
+              background: showHistory ? accentLight : "#f3f4f6",
+              border:"none", borderRadius:9, width:34, height:34, cursor:"pointer",
+              display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+              color: showHistory ? accent : "#6b7280", transition:"all .15s" }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </button>
           </div>
         </div>
-        {doneCount > 0 && (
-          <button onClick={clearDone} style={{ fontSize:13, color:"#9ca3af", background:"none", border:"1px solid #e5e7eb",
-            borderRadius:8, padding:"6px 12px", cursor:"pointer", fontWeight:600 }}>
-            Xoá đã xong
-          </button>
+
+        {/* Progress bar */}
+        {total > 0 && (
+          <div style={{ marginTop:10 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:5 }}>
+              <span style={{ fontSize:12, color:"#9ca3af", fontWeight:600 }}>{activeCount} việc còn lại</span>
+              <span style={{ fontSize:12, fontWeight:700, color: progress===100?"#22c55e":accent }}>{progress}%</span>
+            </div>
+            <div style={{ height:6, background:"#f0f2f5", borderRadius:99, overflow:"hidden" }}>
+              <div style={{ height:"100%", borderRadius:99, background: progress===100
+                ? "linear-gradient(90deg,#22c55e,#16a34a)"
+                : `linear-gradient(90deg,${accent},${accent}cc)`,
+                width:`${progress}%`, transition:"width .4s cubic-bezier(.4,0,.2,1)" }} />
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Input row */}
-      <div style={{ display:"flex", gap:8, marginBottom:8, alignItems:"stretch" }}>
+      {/* ── History panel ── */}
+      {showHistory && (
+        <div style={{ marginBottom:18, background:"#f8fafc", borderRadius:14,
+          border:"1.5px solid #e8edf3", overflow:"hidden" }}>
+          <div style={{ padding:"12px 14px", borderBottom:"1px solid #e8edf3",
+            fontSize:13, fontWeight:700, color:"#374151", display:"flex", alignItems:"center", gap:7 }}>
+            <svg width="14" height="14" fill="none" stroke={accent} strokeWidth="2.2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Lịch sử {historyDays.length > 0 ? `(${historyDays.length} ngày)` : ""}
+          </div>
+          {historyDays.length === 0 ? (
+            <div style={{ padding:"20px 14px", textAlign:"center", fontSize:13, color:"#9ca3af" }}>
+              Chưa có lịch sử nào
+            </div>
+          ) : (
+            <div>
+              {historyDays.map(day => {
+                const dayTodos = history[day] || [];
+                const dayDone = dayTodos.filter(t=>t.done).length;
+                const isOpen = expandedDay === day;
+                return (
+                  <div key={day} style={{ borderBottom:"1px solid #eef2f7" }}>
+                    <button onClick={()=>setExpandedDay(isOpen ? null : day)} style={{
+                      width:"100%", display:"flex", alignItems:"center", justifyContent:"space-between",
+                      padding:"10px 14px", background:"none", border:"none", cursor:"pointer",
+                      textAlign:"left" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+                        <div style={{ width:8, height:8, borderRadius:99, flexShrink:0,
+                          background: dayDone===dayTodos.length && dayTodos.length>0 ? "#22c55e" : "#f59e0b" }} />
+                        <span style={{ fontSize:13, fontWeight:600, color:"#374151" }}>{formatHistoryDate(day)}</span>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <span style={{ fontSize:12, color:"#9ca3af", fontWeight:500 }}>
+                          {dayDone}/{dayTodos.length} xong
+                        </span>
+                        <svg width="13" height="13" fill="none" stroke="#9ca3af" strokeWidth="2.2" viewBox="0 0 24 24"
+                          style={{ transform: isOpen?"rotate(180deg)":"none", transition:"transform .2s" }}>
+                          <polyline points="6 9 12 15 18 9"/>
+                        </svg>
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div style={{ padding:"0 14px 12px" }}>
+                        {dayTodos.map(t => (
+                          <div key={t.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 0",
+                            borderBottom:"1px dashed #eef2f7" }}>
+                            <div style={{ width:16, height:16, borderRadius:4, flexShrink:0,
+                              background: t.done ? accent : "transparent",
+                              border:`2px solid ${t.done ? accent : "#d1d5db"}`,
+                              display:"flex", alignItems:"center", justifyContent:"center" }}>
+                              {t.done && <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2,6 5,9 10,3"/></svg>}
+                            </div>
+                            <span style={{ flex:1, fontSize:12.5, color: t.done?"#9ca3af":"#374151",
+                              textDecoration: t.done?"line-through":"none", fontWeight:500 }}>{t.text}</span>
+                            {t.time && <span style={{ fontSize:11, color:"#9ca3af" }}>⏰ {t.time}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Input row ── */}
+      <div style={{ display:"flex", gap:8, marginBottom:14, alignItems:"stretch" }}>
         <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
           onKeyDown={e=>{ if(e.key==="Enter") addTodo(); }}
           placeholder="Thêm việc cần làm..."
-          style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:10, padding:isMobile?"11px 12px":"9px 12px",
+          style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:11, padding:isMobile?"12px 13px":"10px 13px",
             fontSize:isMobile?15:14, fontFamily:"inherit", outline:"none", color:"#111827",
-            background:"#fff", transition:"border-color .15s" }}
+            background:"#fff", transition:"border-color .15s", boxShadow:"0 1px 3px rgba(0,0,0,.05)" }}
           onFocus={e=>e.target.style.borderColor=accent}
           onBlur={e=>e.target.style.borderColor="#e5e7eb"}
         />
         <input type="time" value={time} onChange={e=>setTime(e.target.value)}
-          style={{ border:"1.5px solid #e5e7eb", borderRadius:10, padding:"0 10px",
+          style={{ border:"1.5px solid #e5e7eb", borderRadius:11, padding:"0 10px",
             fontSize:isMobile?14:13, fontFamily:"inherit", outline:"none", color: time?"#111827":"#9ca3af",
             background:"#fff", transition:"border-color .15s", flexShrink:0, cursor:"pointer",
-            width: isMobile?108:100 }}
+            width: isMobile?108:100, boxShadow:"0 1px 3px rgba(0,0,0,.05)" }}
           onFocus={e=>e.target.style.borderColor=accent}
           onBlur={e=>e.target.style.borderColor="#e5e7eb"}
         />
-        <button onClick={addTodo} style={{ background:accent, border:"none", borderRadius:10,
-          color:"#fff", padding:isMobile?"0 16px":"0 14px", cursor:"pointer",
-          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-          <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+        <button onClick={addTodo} style={{ background:accent, border:"none", borderRadius:11,
+          color:"#fff", padding:isMobile?"0 17px":"0 15px", cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+          boxShadow:`0 2px 8px ${accent}55`, transition:"transform .1s, box-shadow .1s" }}
+          onMouseEnter={e=>{ e.currentTarget.style.transform="scale(1.05)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.transform="scale(1)"; }}>
+          <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
             <line x1="7" y1="2" x2="7" y2="12"/><line x1="2" y1="7" x2="12" y2="7"/>
           </svg>
         </button>
       </div>
 
-      {/* List */}
+      {/* ── List ── */}
       {sorted.length === 0 ? (
-        <div style={{ textAlign:"center", padding:"48px 0" }}>
-          <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
-          <div style={{ fontSize:14, fontWeight:600, color:"#9ca3af" }}>Chưa có việc gì</div>
+        <div style={{ textAlign:"center", padding:"52px 0" }}>
+          <div style={{ fontSize:40, marginBottom:12 }}>✨</div>
+          <div style={{ fontSize:15, fontWeight:700, color:"#9ca3af" }}>Hôm nay chưa có việc gì!</div>
+          <div style={{ fontSize:13, color:"#d1d5db", marginTop:4, fontWeight:500 }}>Thêm việc cần làm ở trên nhé</div>
         </div>
       ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {sorted.map(todo => (
-            <div key={todo.id} style={{ display:"flex", alignItems:"center", gap:10,
-              background: todo.done ? "#fafafa" : "#fff",
-              border:`1.5px solid ${todo.done ? "#f0f0f0" : "#e5e7eb"}`,
-              borderRadius:12, padding: isMobile?"11px 12px":"9px 12px",
-              transition:"all .15s", opacity: todo.done ? 0.7 : 1 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+          {sorted.map((todo, idx) => {
+            // Subtle left-border color for active items
+            const borderAccent = todo.done ? borderDone : borderNormal;
+            return (
+              <div key={todo.id} style={{
+                display:"flex", alignItems:"center", gap:11,
+                background: todo.done ? cardDone : cardBg,
+                border:`1.5px solid ${borderAccent}`,
+                borderLeft: todo.done ? `3px solid #d1fae5` : `3px solid ${accent}`,
+                borderRadius:13, padding: isMobile?"12px 12px":"10px 12px",
+                transition:"all .2s", opacity: todo.done ? 0.72 : 1,
+                boxShadow: todo.done ? "none" : "0 1px 4px rgba(0,0,0,.04)" }}>
 
-              <button onClick={() => toggleDone(todo.id)} style={{
-                width:22, height:22, borderRadius:6, border:`2px solid ${todo.done ? accent : "#d1d5db"}`,
-                background: todo.done ? accent : "transparent", flexShrink:0, cursor:"pointer",
-                display:"flex", alignItems:"center", justifyContent:"center", transition:"all .15s", padding:0 }}>
-                {todo.done && <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="2,6 5,9 10,3"/></svg>}
-              </button>
+                <button onClick={() => toggleDone(todo.id)} style={{
+                  width:24, height:24, borderRadius:7, border:`2px solid ${todo.done ? "#22c55e" : "#d1d5db"}`,
+                  background: todo.done ? "#22c55e" : "transparent", flexShrink:0, cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", transition:"all .18s", padding:0 }}>
+                  {todo.done && <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="2,6 5,9 10,3"/></svg>}
+                </button>
 
-              <span style={{ flex:1, fontSize: isMobile?15:14, color: todo.done ? "#9ca3af" : "#111827",
-                textDecoration: todo.done ? "line-through" : "none", fontWeight:500,
-                lineHeight:1.4, wordBreak:"break-word", transition:"all .15s" }}>
-                {todo.text}
-              </span>
-
-              {todo.time && (
-                <span style={{ fontSize:12, fontWeight:600, color: todo.done?"#d1d5db":accent,
-                  background: todo.done?"#f3f4f6":accentLight, borderRadius:6, padding:"3px 8px",
-                  flexShrink:0, whiteSpace:"nowrap" }}>
-                  ⏰ {todo.time}
+                <span style={{ flex:1, fontSize: isMobile?15:14, color: todo.done ? "#9ca3af" : "#111827",
+                  textDecoration: todo.done ? "line-through" : "none", fontWeight: todo.done ? 400 : 500,
+                  lineHeight:1.45, wordBreak:"break-word", transition:"all .2s" }}>
+                  {todo.text}
                 </span>
-              )}
 
-              <button onClick={() => deleteTodo(todo.id)} style={{
-                background:"#f9fafb", border:"1.5px solid #e5e7eb", cursor:"pointer", color:"#9ca3af",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                width:32, height:32, borderRadius:8, flexShrink:0, transition:"all .12s" }}
-                onMouseEnter={e=>{ e.currentTarget.style.background="#fef2f2"; e.currentTarget.style.borderColor="#fecaca"; e.currentTarget.style.color="#ef4444"; }}
-                onMouseLeave={e=>{ e.currentTarget.style.background="#f9fafb"; e.currentTarget.style.borderColor="#e5e7eb"; e.currentTarget.style.color="#9ca3af"; }}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
-                  <path d="M9 6V4h6v2"/>
-                </svg>
-              </button>
+                {todo.time && (
+                  <span style={{ fontSize:11.5, fontWeight:600,
+                    color: todo.done ? "#d1d5db" : accent,
+                    background: todo.done ? "#f3f4f6" : accentLight,
+                    borderRadius:6, padding:"3px 8px", flexShrink:0, whiteSpace:"nowrap",
+                    border: todo.done ? "1px solid #eee" : `1px solid ${accent}33` }}>
+                    ⏰ {todo.time}
+                  </span>
+                )}
+
+                <button onClick={() => deleteTodo(todo.id)} style={{
+                  background:"transparent", border:"none", cursor:"pointer", color:"#c4cad4",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  width:30, height:30, borderRadius:8, flexShrink:0, transition:"all .12s", padding:0 }}
+                  onMouseEnter={e=>{ e.currentTarget.style.background="#fef2f2"; e.currentTarget.style.color="#ef4444"; }}
+                  onMouseLeave={e=>{ e.currentTarget.style.background="transparent"; e.currentTarget.style.color="#c4cad4"; }}>
+                  <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                    <path d="M9 6V4h6v2"/>
+                  </svg>
+                </button>
+              </div>
+            );
+          })}
+
+          {doneCount > 0 && activeCount === 0 && (
+            <div style={{ textAlign:"center", padding:"18px 0 6px" }}>
+              <div style={{ fontSize:22, marginBottom:6 }}>🎉</div>
+              <div style={{ fontSize:13.5, fontWeight:700, color:"#22c55e" }}>Xong hết rồi! Tuyệt vời!</div>
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>
