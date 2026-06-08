@@ -431,16 +431,20 @@ function setLastSavedDay(d) { localStorage.setItem(TODO_DAY_KEY, d); }
 function checkAndResetTodos(todos, setTodos) {
   const today = getTodayStr();
   const lastDay = getLastSavedDay();
-  if (lastDay && lastDay !== today && todos.length > 0) {
-    // Archive yesterday
-    const hist = loadTodoHistory();
-    hist[lastDay] = todos;
-    // Keep only last 14 days
-    const keys = Object.keys(hist).sort().reverse();
-    keys.slice(14).forEach(k => delete hist[k]);
-    saveTodoHistory(hist);
-    setTodos([]);
-    saveTodos([]);
+  if (lastDay && lastDay !== today) {
+    // Read directly from localStorage to avoid stale React state
+    const currentTodos = loadTodos();
+    if (currentTodos.length > 0) {
+      // Archive yesterday
+      const hist = loadTodoHistory();
+      hist[lastDay] = currentTodos;
+      // Keep only last 14 days
+      const keys = Object.keys(hist).sort().reverse();
+      keys.slice(14).forEach(k => delete hist[k]);
+      saveTodoHistory(hist);
+      saveTodos([]);
+      setTodos([]);
+    }
   }
   setLastSavedDay(today);
 }
