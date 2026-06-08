@@ -205,7 +205,20 @@ function useFirebaseSync() {
     }, 800);
   }, [fbReady]);
 
-  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate };
+  const pushToFirebaseNow = useCallback(async (key, value) => {
+    if (!fbReady || !window._setDoc || !window._fbDoc) return;
+    if (isRemoteUpdate.current) return;
+    try {
+      setSyncing(true);
+      await window._setDoc(window._fbDoc("studytodo"), { [key]: JSON.stringify(value) }, { merge: true });
+      setSyncOk(true);
+      if (syncOkTimer.current) clearTimeout(syncOkTimer.current);
+      syncOkTimer.current = setTimeout(() => setSyncOk(false), 3000);
+    } catch(e) { console.error("Firebase write error", e); setSyncOk(false); }
+    finally { setSyncing(false); }
+  }, [fbReady]);
+
+  return { fbReady, syncing, syncOk, pushToFirebase, pushToFirebaseNow, isRemoteUpdate };
 }
 
 /* ─── Responsive ─── */
@@ -4309,7 +4322,7 @@ function App() {
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
-  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate } = useFirebaseSync();
+  const { fbReady, syncing, syncOk, pushToFirebase, pushToFirebaseNow, isRemoteUpdate } = useFirebaseSync();
   const isFirstLoad = useRef(true);
 
   // Lắng nghe realtime từ Firebase
@@ -4344,7 +4357,7 @@ function App() {
   useEffect(() => { if (!isMounted.current) return; saveSoanBai(soanBaiData); pushToFirebase("soanbai", soanBaiData); }, [soanBaiData]);
   useEffect(() => { if (!isMounted.current) return; saveTaiChinh(taiChinh); pushToFirebase("taichinh", taiChinh); }, [taiChinh]);
   useEffect(() => { if (!isMounted.current) return; saveLichHoc(lichHocData); pushToFirebase("thoikhoa", lichHocData); }, [lichHocData]);
-  useEffect(() => { if (!isMounted.current) return; saveTodos(todos); pushToFirebase("todos", todos); }, [todos]);
+  useEffect(() => { if (!isMounted.current) return; saveTodos(todos); pushToFirebaseNow("todos", todos); }, [todos]);
   useEffect(() => { localStorage.setItem("studytodo_theme",themeKey); }, [themeKey]);
 
   // Đổi sang thiết bị khác bằng mã ID
