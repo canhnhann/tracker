@@ -689,6 +689,15 @@ function LessonDetailModal({ lesson, accent, accentLight, accentText, isMobile, 
         <div style={{ overflowY: "auto", flex: 1, padding: isMobile ? "14px 16px" : "14px 18px",
           display: "flex", flexDirection: "column", gap: 14 }}>
 
+          {/* Ngày dạy */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: ".08em",
+              textTransform: "uppercase", marginBottom: 6 }}>Ngày dạy</div>
+            <input type="date" value={lesson.date || ""}
+              onChange={e => onUpdate({ date: e.target.value })}
+              style={{ ...inputStyle, width: "auto", minWidth: isMobile ? 180 : 160, cursor: "pointer" }} />
+          </div>
+
           {/* Ghi chú */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: ".08em",
@@ -729,7 +738,7 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
 
   const addLesson = () => {
     if (!newTitle.trim()) return;
-    const newLesson = { id: uid(), title: newTitle.trim(), note: "", materials: [] };
+    const newLesson = { id: uid(), title: newTitle.trim(), date: "", note: "", materials: [] };
     onUpdate([...lessons, newLesson]);
     setNewTitle(""); setAddingLesson(false);
     setOpenLessonId(newLesson.id);
@@ -789,10 +798,19 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
       {/* Chip grid */}
       {lessons.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: isMobile ? 8 : 6 }}>
-          {lessons.map(lesson => {
+          {[...lessons].sort((a, b) => {
+            if (!a.date && !b.date) return 0;
+            if (!a.date) return 1;
+            if (!b.date) return -1;
+            return new Date(a.date) - new Date(b.date);
+          }).map(lesson => {
             const matCount = (lesson.materials || []).length;
             const printedCount = (lesson.materials || []).filter(m => m.printed).length;
             const hasNote = (lesson.note || "").trim().length > 0;
+            const dateLabel = lesson.date ? (() => {
+              const d = new Date(lesson.date + "T00:00:00");
+              return `${d.getDate()}/${d.getMonth()+1}`;
+            })() : null;
             return (
               <button key={lesson.id} onClick={() => setOpenLessonId(lesson.id)} style={{
                 display: "flex", alignItems: "center", gap: 6,
@@ -806,7 +824,11 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
               onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.boxShadow = `0 2px 8px ${accent}22`; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = `${accent}33`; e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,.06)"; }}
               >
-                <span style={{ color: accent, flexShrink: 0, display: "flex", fontSize: 14 }}>{IC.filetext}</span>
+                {dateLabel ? (
+                  <span style={{ fontSize: 11, fontWeight: 700, background: accentLight, color: accentText, borderRadius: 6, padding: "2px 6px", flexShrink: 0 }}>{dateLabel}</span>
+                ) : (
+                  <span style={{ color: accent, flexShrink: 0, display: "flex", fontSize: 14 }}>{IC.filetext}</span>
+                )}
                 <span style={{ fontSize: isMobile ? 13 : 12, fontWeight: 600, color: "#1f2937",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 130 }}>
                   {lesson.title}
@@ -878,7 +900,7 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
 /* ─── SoanBaiSubjectCard ─── */
 function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
   const { accent, accentLight, accentText, dot } = theme;
-  const [activeSection, setActiveSection] = useState("lichhoc");
+  const [activeSection, setActiveSection] = useState("tailieu");
   const [open, setOpen] = useState(false);
 
   const updateScheduleRow = (idx, patch) => {
@@ -933,7 +955,7 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
 
           {/* Section Tabs */}
           <div style={{ display: "flex", marginBottom: 14, borderBottom: "1px solid #f3f4f6", overflowX: "auto", scrollbarWidth: "none" }}>
-            {[["lichhoc", IC.calendar, "Lịch dạy"], ["tailieu", IC.folder, "Tài liệu dạy"], ["luong", IC.wallet, "Lương"]].map(([k, icon, label]) => (
+            {[["tailieu", IC.folder, "Lịch cụ thể"], ["lichhoc", IC.calendar, "Lịch dạy"], ["luong", IC.wallet, "Lương"]].map(([k, icon, label]) => (
               <button key={k} onClick={() => setActiveSection(k)} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: isMobile ? 13 : 12, fontWeight: 700, letterSpacing: ".04em", padding: isMobile ? "10px 14px" : "7px 12px", background: "none", border: "none", cursor: "pointer", color: activeSection === k ? accentText : "#9ca3af", borderBottom: activeSection === k ? `2px solid ${accent}` : "2px solid transparent", marginBottom: -1, whiteSpace: "nowrap", flexShrink: 0 }}>
                 <span style={{ color: activeSection === k ? accent : "#d1d5db" }}>{icon}</span>
                 {label}
