@@ -4528,9 +4528,6 @@ function App() {
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
   const { fbReady, authUid, authEmail, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites } = useFirebaseSync();
-
-  // Nếu chưa đăng nhập → hiện màn hình login
-  if (!authUid && !window._currentUid) return <LoginScreen />;
   // syncId luôn là Firebase Auth UID — đảm bảo dữ liệu thuộc về đúng người dùng
   const syncId = authUid;
   const isFirstLoad = useRef(true);
@@ -4714,7 +4711,27 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("app")).render(<ErrorBoundary><App /></ErrorBoundary>);
+
+function Root() {
+  const [authUid, setAuthUid] = React.useState(() => window._currentUid || null);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      setAuthUid(e.detail?.uid || null);
+    };
+    window.addEventListener("auth-state", handler);
+    window.addEventListener("firebase-ready", handler);
+    return () => {
+      window.removeEventListener("auth-state", handler);
+      window.removeEventListener("firebase-ready", handler);
+    };
+  }, []);
+
+  if (!authUid) return <LoginScreen />;
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<ErrorBoundary><Root /></ErrorBoundary>);
 </script>
 
 </body>
