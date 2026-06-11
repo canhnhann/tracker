@@ -145,6 +145,28 @@
   window._signIn = (email, password) => signInWithEmailAndPassword(auth, email, password);
   window._signUp = (email, password) => createUserWithEmailAndPassword(auth, email, password);
   window._signOut = () => signOut(auth);
+
+  // ── Tài khoản local (không cần mạng) ──
+  const LOCAL_ACCOUNTS = {
+    "admin@test": { password: "admin", uid: "local_admin_uid", email: "admin@test" }
+  };
+  window._signInLocal = function(email, password) {
+    const acc = LOCAL_ACCOUNTS[email];
+    if (acc && acc.password === password) {
+      window._currentUid = acc.uid;
+      window._userEmail  = acc.email;
+      window._fbReady    = false; // local mode — không dùng Firestore
+      window.dispatchEvent(new CustomEvent("auth-state",    { detail: { uid: acc.uid, email: acc.email } }));
+      window.dispatchEvent(new CustomEvent("firebase-ready",{ detail: { uid: acc.uid } }));
+      return true;
+    }
+    return false;
+  };
+  window._signOutLocal = function() {
+    window._currentUid = null;
+    window._userEmail  = null;
+    window.dispatchEvent(new CustomEvent("auth-state", { detail: { uid: null } }));
+  };
   window._signInGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
   window._changePassword = async (currentPassword, newPassword) => {
     const user = auth.currentUser;
@@ -635,6 +657,11 @@ function LoginScreen() {
       return;
     }
     setLoading(true);
+    // Thử tài khoản local trước (không cần mạng)
+    if (mode === "login" && window._signInLocal && window._signInLocal(email, password)) {
+      setLoading(false);
+      return;
+    }
     try {
       if (mode === "login") await window._signIn(email, password);else await window._signUp(email, password);
     } catch (e) {
@@ -1089,393 +1116,43 @@ const THEMES = {
   }
 };
 
-/* ─── Icons ─── */
+/* ─── Icons (Lucide-style SVG) ─── */
+function LI(paths, size=18, sw='2') {
+  return React.createElement('svg', {
+    width: size, height: size, viewBox: '0 0 24 24',
+    fill: 'none', stroke: 'currentColor',
+    strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round',
+    style: { display:'inline-block', verticalAlign:'middle', flexShrink:0 }
+  }, ...paths.map((p,i) =>
+    React.createElement(p[0], {key:i, ...p[1]})
+  ));
+}
 const IC = {
-  plus: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: "12",
-    y1: "5",
-    x2: "12",
-    y2: "19"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "5",
-    y1: "12",
-    x2: "19",
-    y2: "12"
-  })),
-  trash: /*#__PURE__*/React.createElement("svg", {
-    width: "17",
-    height: "17",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("polyline", {
-    points: "3 6 5 6 21 6"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M19 6l-1 14H6L5 6"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M10 11v6M14 11v6"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M9 6V4h6v2"
-  })),
-  chevron: open => /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.5",
-    viewBox: "0 0 24 24",
-    style: {
-      transform: open ? "rotate(90deg)" : "rotate(0deg)",
-      transition: "transform .2s"
-    }
-  }, /*#__PURE__*/React.createElement("polyline", {
-    points: "9 18 15 12 9 6"
-  })),
-  book: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M4 19.5A2.5 2.5 0 016.5 17H20"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"
-  })),
-  file: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "14 2 14 8 20 8"
-  })),
-  upload: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("polyline", {
-    points: "16 16 12 12 8 16"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "12",
-    y1: "12",
-    x2: "12",
-    y2: "21"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"
-  })),
-  edit: /*#__PURE__*/React.createElement("svg", {
-    width: "15",
-    height: "15",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-  })),
-  clock: /*#__PURE__*/React.createElement("svg", {
-    width: "14",
-    height: "14",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    cx: "12",
-    cy: "12",
-    r: "10"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "12 6 12 12 16 14"
-  })),
-  chart: /*#__PURE__*/React.createElement("svg", {
-    width: "17",
-    height: "17",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: "18",
-    y1: "20",
-    x2: "18",
-    y2: "10"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "12",
-    y1: "20",
-    x2: "12",
-    y2: "4"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "6",
-    y1: "20",
-    x2: "6",
-    y2: "14"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "2",
-    y1: "20",
-    x2: "22",
-    y2: "20"
-  })),
-  flag: /*#__PURE__*/React.createElement("svg", {
-    width: "15",
-    height: "15",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "4",
-    y1: "22",
-    x2: "4",
-    y2: "15"
-  })),
-  x: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.5",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: "18",
-    y1: "6",
-    x2: "6",
-    y2: "18"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "6",
-    y1: "6",
-    x2: "18",
-    y2: "18"
-  })),
-  folder: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
-  })),
-  filetext: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "14 2 14 8 20 8"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "16",
-    y1: "13",
-    x2: "8",
-    y2: "13"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "16",
-    y1: "17",
-    x2: "8",
-    y2: "17"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "10 9 9 9 8 9"
-  })),
-  pen: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M12 20h9"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
-  })),
-  calendar: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("rect", {
-    x: "3",
-    y: "4",
-    width: "20",
-    height: "20",
-    rx: "2",
-    ry: "2"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "16",
-    y1: "2",
-    x2: "16",
-    y2: "6"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "8",
-    y1: "2",
-    x2: "8",
-    y2: "6"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "3",
-    y1: "10",
-    x2: "21",
-    y2: "10"
-  })),
-  wallet: /*#__PURE__*/React.createElement("svg", {
-    width: "18",
-    height: "18",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "16",
-    cy: "14",
-    r: "1",
-    fill: "currentColor"
-  })),
-  arrowLeft: /*#__PURE__*/React.createElement("svg", {
-    width: "20",
-    height: "20",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.5",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: "19",
-    y1: "12",
-    x2: "5",
-    y2: "12"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "12 19 5 12 12 5"
-  })),
-  arrowRight: /*#__PURE__*/React.createElement("svg", {
-    width: "20",
-    height: "20",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2.5",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("line", {
-    x1: "5",
-    y1: "12",
-    x2: "19",
-    y2: "12"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "12 5 19 12 12 19"
-  })),
-  check: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M22 11.08V12a10 10 0 1 1-5.93-9.14"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "22 4 12 14.01 9 11.01"
-  })),
-  home: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
-  }), /*#__PURE__*/React.createElement("polyline", {
-    points: "9 22 9 12 15 12 15 22"
-  })),
-  sun: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("circle", {
-    cx: "12",
-    cy: "12",
-    r: "5"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "12",
-    y1: "1",
-    x2: "12",
-    y2: "3"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "12",
-    y1: "21",
-    x2: "12",
-    y2: "23"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "4.22",
-    y1: "4.22",
-    x2: "5.64",
-    y2: "5.64"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "18.36",
-    y1: "18.36",
-    x2: "19.78",
-    y2: "19.78"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "1",
-    y1: "12",
-    x2: "3",
-    y2: "12"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "21",
-    y1: "12",
-    x2: "23",
-    y2: "12"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "4.22",
-    y1: "19.78",
-    x2: "5.64",
-    y2: "18.36"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "18.36",
-    y1: "5.64",
-    x2: "19.78",
-    y2: "4.22"
-  })),
-  moon: /*#__PURE__*/React.createElement("svg", {
-    width: "16",
-    height: "16",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: "2",
-    viewBox: "0 0 24 24"
-  }, /*#__PURE__*/React.createElement("path", {
-    d: "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-  }))
+  plus:      LI([['line',{x1:'12',y1:'5',x2:'12',y2:'19'}],['line',{x1:'5',y1:'12',x2:'19',y2:'12'}]], 18),
+  trash:     LI([['polyline',{points:'3 6 5 6 21 6'}],['path',{d:'M19 6l-1 14H6L5 6'}],['path',{d:'M10 11v6M14 11v6'}],['path',{d:'M9 6V4h6v2'}]], 17),
+  chevron:   open => React.createElement('span', {
+    style:{ display:'inline-flex', alignItems:'center', lineHeight:0,
+            transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform .2s' }
+  }, LI([['polyline',{points:'9 18 15 12 9 6'}]], 16, '2.5')),
+  book:      LI([['path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}],['path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}]], 18),
+  file:      LI([['path',{d:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'}],['polyline',{points:'14 2 14 8 20 8'}]], 16),
+  upload:    LI([['polyline',{points:'16 16 12 12 8 16'}],['line',{x1:'12',y1:'12',x2:'12',y2:'21'}],['path',{d:'M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3'}]], 16),
+  edit:      LI([['path',{d:'M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z'}]], 15),
+  clock:     LI([['circle',{cx:'12',cy:'12',r:'10'}],['polyline',{points:'12 6 12 12 16 14'}]], 14),
+  chart:     LI([['line',{x1:'18',y1:'20',x2:'18',y2:'10'}],['line',{x1:'12',y1:'20',x2:'12',y2:'4'}],['line',{x1:'6',y1:'20',x2:'6',y2:'14'}],['line',{x1:'2',y1:'20',x2:'22',y2:'20'}]], 17),
+  flag:      LI([['path',{d:'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z'}],['line',{x1:'4',y1:'22',x2:'4',y2:'15'}]], 15),
+  x:         LI([['line',{x1:'18',y1:'6',x2:'6',y2:'18'}],['line',{x1:'6',y1:'6',x2:'18',y2:'18'}]], 16, '2.5'),
+  folder:    LI([['path',{d:'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'}]], 18),
+  filetext:  LI([['path',{d:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'}],['polyline',{points:'14 2 14 8 20 8'}],['line',{x1:'16',y1:'13',x2:'8',y2:'13'}],['line',{x1:'16',y1:'17',x2:'8',y2:'17'}],['polyline',{points:'10 9 9 9 8 9'}]], 18),
+  pen:       LI([['path',{d:'M12 20h9'}],['path',{d:'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'}]], 18),
+  calendar:  LI([['rect',{x:'3',y:'4',width:'18',height:'18',rx:'2',ry:'2'}],['line',{x1:'16',y1:'2',x2:'16',y2:'6'}],['line',{x1:'8',y1:'2',x2:'8',y2:'6'}],['line',{x1:'3',y1:'10',x2:'21',y2:'10'}]], 18),
+  wallet:    LI([['path',{d:'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z'}],['path',{d:'M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z'}],['circle',{cx:'16',cy:'14',r:'1',fill:'currentColor'}]], 18),
+  arrowLeft: LI([['line',{x1:'19',y1:'12',x2:'5',y2:'12'}],['polyline',{points:'12 19 5 12 12 5'}]], 20, '2.5'),
+  arrowRight:LI([['line',{x1:'5',y1:'12',x2:'19',y2:'12'}],['polyline',{points:'12 5 19 12 12 19'}]], 20, '2.5'),
+  check:     LI([['polyline',{points:'9 11 12 14 22 4'}],['path',{d:'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'}]], 16),
+  home:      LI([['path',{d:'M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z'}],['path',{d:'M9 21V12h6v9'}]], 18),
+  sun:       LI([['circle',{cx:'12',cy:'12',r:'5'}],['line',{x1:'12',y1:'1',x2:'12',y2:'3'}],['line',{x1:'12',y1:'21',x2:'12',y2:'23'}],['line',{x1:'4.22',y1:'4.22',x2:'5.64',y2:'5.64'}],['line',{x1:'18.36',y1:'18.36',x2:'19.78',y2:'19.78'}],['line',{x1:'1',y1:'12',x2:'3',y2:'12'}],['line',{x1:'21',y1:'12',x2:'23',y2:'12'}],['line',{x1:'4.22',y1:'19.78',x2:'5.64',y2:'18.36'}],['line',{x1:'18.36',y1:'5.64',x2:'19.78',y2:'4.22'}]], 18),
+  moon:      LI([['path',{d:'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'}]], 16),
 };
 const NAV_TABS = [{
   id: "homnay",
@@ -1549,147 +1226,17 @@ function NavBar({
   theme,
   isMobile
 }) {
-  const NAV_ITEMS = [{
-    id: "lichhoc",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "22",
-      height: "22",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("rect", {
-      x: "3",
-      y: "4",
-      width: "18",
-      height: "18",
-      rx: "2"
-    }), /*#__PURE__*/React.createElement("line", {
-      x1: "16",
-      y1: "2",
-      x2: "16",
-      y2: "6"
-    }), /*#__PURE__*/React.createElement("line", {
-      x1: "8",
-      y1: "2",
-      x2: "8",
-      y2: "6"
-    }), /*#__PURE__*/React.createElement("line", {
-      x1: "3",
-      y1: "10",
-      x2: "21",
-      y2: "10"
-    })),
-    label: "Lịch"
-  }, {
-    id: "homnay",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "22",
-      height: "22",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M9 21V12h6v9"
-    })),
-    label: "Hôm nay"
-  }, {
-    id: "soanbai",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "22",
-      height: "22",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M12 20h9"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-    })),
-    label: "Lớp dạy"
-  }, {
-    id: "more",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "22",
-      height: "22",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("circle", {
-      cx: "5",
-      cy: "12",
-      r: "1.2",
-      fill: "currentColor"
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: "12",
-      cy: "12",
-      r: "1.2",
-      fill: "currentColor"
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: "19",
-      cy: "12",
-      r: "1.2",
-      fill: "currentColor"
-    })),
-    label: "Thêm"
-  }];
-  const MORE_ITEMS = [{
-    id: "todo",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "18",
-      height: "18",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("rect", {
-      x: "3",
-      y: "3",
-      width: "18",
-      height: "18",
-      rx: "3"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M9 12l2 2 4-4"
-    })),
-    label: "To-do"
-  }, {
-    id: "monhoc",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "18",
-      height: "18",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-    })),
-    label: "Lớp học"
-  }, {
-    id: "taichinh",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "18",
-      height: "18",
-      fill: "none",
-      stroke: "currentColor",
-      strokeWidth: "1.8",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M20 12V22H4V12"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M22 7H2v5h20V7z"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M12 22V7"
-    })),
-    label: "Tài chính"
-  }];
+  const NAV_ITEMS = [
+    { id: "lichhoc", icon: LI([['rect',{x:'3',y:'4',width:'18',height:'18',rx:'2'}],['line',{x1:'16',y1:'2',x2:'16',y2:'6'}],['line',{x1:'8',y1:'2',x2:'8',y2:'6'}],['line',{x1:'3',y1:'10',x2:'21',y2:'10'}]], 22, '1.8'), label: "Lịch" },
+    { id: "homnay",  icon: LI([['path',{d:'M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z'}],['path',{d:'M9 21V12h6v9'}]], 22, '1.8'),        label: "Hôm nay" },
+    { id: "soanbai", icon: LI([['path',{d:'M12 20h9'}],['path',{d:'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'}]], 22, '1.8'),      label: "Lớp dạy" },
+    { id: "more",    icon: LI([['circle',{cx:'5',cy:'12',r:'1',fill:'currentColor'}],['circle',{cx:'12',cy:'12',r:'1',fill:'currentColor'}],['circle',{cx:'19',cy:'12',r:'1',fill:'currentColor'}]], 22, '1.8'), label: "Thêm" }
+  ];
+  const MORE_ITEMS = [
+    { id: "todo",     icon: LI([['polyline',{points:'9 11 12 14 22 4'}],['path',{d:'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'}]], 18, '1.8'), label: "To-do" },
+    { id: "monhoc",   icon: LI([['path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}],['path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}]], 18, '1.8'),    label: "Lớp học" },
+    { id: "taichinh", icon: LI([['path',{d:'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z'}],['path',{d:'M16 3H8a2 2 0 0 0-2 2v2h12V5a2 2 0 0 0-2-2z'}],['circle',{cx:'16',cy:'14',r:'1',fill:'currentColor'}]], 18, '1.8'),      label: "Tài chính" }
+  ];
   const [showMore, setShowMore] = React.useState(false);
   const moreRef = React.useRef(null);
   const isMoreActive = ["todo", "monhoc", "taichinh"].includes(activeTab);
@@ -8238,79 +7785,28 @@ function LichHocMonthView({
     color: "#5c6bc0",
     bg: "#e8eaf6",
     border: "#c5cae9",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "15",
-      height: "15",
-      fill: "none",
-      stroke: "#5c6bc0",
-      strokeWidth: "2",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
-    }))
+    icon: LI([['path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}],['path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}]], 15)
   }, {
     key: "th",
     label: "Thực hành",
     color: "#0891b2",
     bg: "#e0f2fe",
     border: "#bae6fd",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "15",
-      height: "15",
-      fill: "none",
-      stroke: "#0891b2",
-      strokeWidth: "2",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M9 3h6v7l3 9H6l3-9V3z"
-    }), /*#__PURE__*/React.createElement("line", {
-      x1: "6",
-      y1: "3",
-      x2: "18",
-      y2: "3"
-    }))
+    icon: LI([['path',{d:'M9 3h6v7l3 9H6l3-9V3z'}],['line',{x1:'6',y1:'3',x2:'18',y2:'3'}]], 15)
   }, {
     key: "thi",
     label: "Lịch thi",
     color: "#dc2626",
     bg: "#fef2f2",
     border: "#fecaca",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "15",
-      height: "15",
-      fill: "none",
-      stroke: "#dc2626",
-      strokeWidth: "2",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-    }), /*#__PURE__*/React.createElement("path", {
-      d: "M13.73 21a2 2 0 0 1-3.46 0"
-    }))
+    icon: LI([['path',{d:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'}],['path',{d:'M13.73 21a2 2 0 0 1-3.46 0'}]], 15)
   }, {
     key: "day",
     label: "Lịch dạy",
     color: "#a855f7",
     bg: "#faf5ff",
     border: "#e9d5ff",
-    icon: /*#__PURE__*/React.createElement("svg", {
-      width: "15",
-      height: "15",
-      fill: "#a855f7",
-      stroke: "#a855f7",
-      strokeWidth: "1.5",
-      viewBox: "0 0 24 24"
-    }, /*#__PURE__*/React.createElement("path", {
-      d: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-    }), /*#__PURE__*/React.createElement("circle", {
-      cx: "12",
-      cy: "10",
-      r: "3",
-      fill: "#fff",
-      stroke: "#fff"
-    }))
+    icon: LI([['path',{d:'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'}],['circle',{cx:'12',cy:'10',r:'3'}]], 15)
   }].map(({
     key,
     label,
@@ -12062,7 +11558,11 @@ function App() {
     }
   }, "\uD83D\uDD11 \u0110\u1ED5i m\u1EADt kh\u1EA9u"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (window._signOut) window._signOut();
+      if (window._currentUid === 'local_admin_uid' && window._signOutLocal) {
+        window._signOutLocal();
+      } else if (window._signOut) {
+        window._signOut();
+      }
     },
     style: {
       background: "#fff",
