@@ -2048,7 +2048,7 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
   );
 }
 /* ─── HomNayPage ─── */
-function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, todos, setTodos }) {
+function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, todos, setTodos, myUid }) {
   const { accent, accentLight, accentText } = theme;
   const now = new Date();
   const todayStr = toDateKey(now);
@@ -2473,9 +2473,314 @@ function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, t
           </div>
         );
       })()}
+
+      {/* ── Theo dõi thiết bị khác ── */}
+      <WatchDeviceSection theme={theme} isMobile={isMobile} myUid={myUid} />
     </div>
   );
 }
+
+/* ─── WatchDeviceSection ─── */
+function WatchDeviceSection({ theme, isMobile, myUid }) {
+  const { accent, accentLight, accentText } = theme;
+  const [open, setOpen] = React.useState(false);
+  const [inputCode, setInputCode] = React.useState("");
+  const [watchedIds, setWatchedIds] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("studytodo_watched") || "[]"); } catch { return []; }
+  });
+  const [showMyCode, setShowMyCode] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const saveWatched = (list) => {
+    setWatchedIds(list);
+    localStorage.setItem("studytodo_watched", JSON.stringify(list));
+  };
+
+  const addWatch = () => {
+    const id = inputCode.trim();
+    if (!id || id === myUid || watchedIds.includes(id)) return;
+    saveWatched([...watchedIds, id]);
+    setInputCode("");
+  };
+
+  const removeWatch = (id) => saveWatched(watchedIds.filter(x => x !== id));
+
+  const copyMyCode = () => {
+    navigator.clipboard?.writeText(myUid).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  };
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom: open ? 12 : 0, cursor:"pointer" }}
+        onClick={() => setOpen(v => !v)}>
+        <div style={{ width:3, height:18, borderRadius:2, background:"#6b7280", flexShrink:0 }} />
+        <span style={{ fontSize:14, fontWeight:800, color:"#6b7280", letterSpacing:".04em", display:"flex", alignItems:"center", gap:6 }}>
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{flexShrink:0}}>
+            <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+          Theo dõi thiết bị
+        </span>
+        {watchedIds.length > 0 && (
+          <span style={{ fontSize:12, fontWeight:700, background:"#f3f4f6", color:"#6b7280", borderRadius:20, padding:"1px 8px" }}>
+            {watchedIds.length}
+          </span>
+        )}
+        <span style={{ marginLeft:"auto", color:"#9ca3af", fontSize:12, transition:"transform .2s",
+          transform: open ? "rotate(90deg)" : "rotate(0deg)", display:"inline-block" }}>▶</span>
+      </div>
+
+      {open && (
+        <div style={{ animation:"fadeSlideDown .2s ease" }}>
+          {/* Mã của mình */}
+          <div style={{ background:"#f8fafc", border:"1.5px solid #e2e8f0", borderRadius:12, padding:"12px 14px", marginBottom:10 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#6b7280", marginBottom:6, display:"flex", alignItems:"center", gap:6 }}>
+              <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              MÃ THIẾT BỊ CỦA BẠN
+            </div>
+            {showMyCode ? (
+              <div style={{ display:"flex", gap:7, alignItems:"center" }}>
+                <span style={{ flex:1, fontSize:11, fontFamily:"monospace", background:"#fff", border:"1px solid #e5e7eb",
+                  borderRadius:7, padding:"7px 10px", color:"#374151", wordBreak:"break-all", lineHeight:1.5 }}>
+                  {myUid}
+                </span>
+                <button onClick={copyMyCode} style={{ background: copied ? "#111" : "#fff", border:"1.5px solid #e5e7eb",
+                  borderRadius:8, cursor:"pointer", padding:"7px 10px", fontSize:12, fontWeight:700,
+                  color: copied ? "#fff" : "#374151", flexShrink:0, transition:"all .15s" }}>
+                  {copied ? "✓ Đã sao" : "Sao chép"}
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setShowMyCode(true)} style={{ background:"#111", border:"none", borderRadius:8,
+                color:"#fff", fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>
+                Hiện mã của tôi
+              </button>
+            )}
+            <div style={{ fontSize:11, color:"#9ca3af", marginTop:6 }}>Chia sẻ mã này cho người khác để họ xem lịch hôm nay của bạn.</div>
+          </div>
+
+          {/* Nhập mã theo dõi */}
+          <div style={{ display:"flex", gap:7, marginBottom:10 }}>
+            <input value={inputCode} onChange={e => setInputCode(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") addWatch(); }}
+              placeholder="Nhập mã thiết bị cần theo dõi..."
+              style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:10, padding: isMobile?"10px 12px":"8px 12px",
+                fontSize: isMobile?14:13, fontFamily:"inherit", outline:"none", color:"#111827", background:"#fff" }} />
+            <button onClick={addWatch} style={{ background:"#111", border:"none", borderRadius:10,
+              color:"#fff", padding:"0 14px", cursor:"pointer", fontWeight:700, fontSize:13, flexShrink:0 }}>
+              Thêm
+            </button>
+          </div>
+
+          {/* Danh sách thiết bị đang theo dõi */}
+          {watchedIds.length === 0 ? (
+            <div style={{ background:"#fafafa", border:"1px dashed #f0f0f0", borderRadius:10,
+              padding:"12px 14px", fontSize:13, color:"#d1d5db", fontWeight:500, textAlign:"center" }}>
+              Chưa theo dõi thiết bị nào
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {watchedIds.map(id => (
+                <WatchedDeviceCard key={id} uid={id} theme={theme} isMobile={isMobile} onRemove={() => removeWatch(id)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── WatchedDeviceCard ─── */
+function WatchedDeviceCard({ uid: targetUid, theme, isMobile, onRemove }) {
+  const { accent, accentLight } = theme;
+  const [status, setStatus] = React.useState("loading"); // loading | ok | error
+  const [sessions, setSessions] = React.useState([]);
+  const [nickname, setNickname] = React.useState("");
+  const [editingName, setEditingName] = React.useState(false);
+  const [nameInput, setNameInput] = React.useState("");
+  const shortId = targetUid.slice(0, 8).toUpperCase();
+
+  // Load saved nickname
+  React.useEffect(() => {
+    const saved = localStorage.getItem("studytodo_nick_" + targetUid) || "";
+    setNickname(saved);
+  }, [targetUid]);
+
+  // Listen to Firebase realtime
+  React.useEffect(() => {
+    if (!window._onSnapshot || !window._fbDoc) { setStatus("error"); return; }
+    try {
+      const unsub = window._onSnapshot(window._fbDoc("studytodo", targetUid), (snap) => {
+        if (!snap.exists()) { setStatus("error"); return; }
+        const d = snap.data();
+        const now = new Date();
+        const todayStr = toDateKey(now);
+        const DOW_MAP_VN = {"Thứ 2":1,"Thứ 3":2,"Thứ 4":3,"Thứ 5":4,"Thứ 6":5,"Thứ 7":6,"Chủ Nhật":0};
+        const list = [];
+
+        // Parse lichHocData (thoikhoa)
+        try {
+          const lh = d.thoikhoa ? JSON.parse(d.thoikhoa) : null;
+          const semStart = lh?.semesterStart || "";
+          const year = now.getFullYear(), month = now.getMonth();
+          (lh?.subjects || []).forEach(subj => {
+            (subj.rules || []).forEach(rule => {
+              if (generateDaysInMonth(rule, year, month, semStart).includes(todayStr)) {
+                const loai = LOAI_OPTIONS.find(l=>l.value===rule.loai)||LOAI_OPTIONS[0];
+                const buoi = BUOI_OPTIONS.find(b=>b.value===rule.buoi)||BUOI_OPTIONS[0];
+                list.push({ type:"hoc", subjName:subj.name, rule, loai, buoi });
+              }
+            });
+            (subj.specifics || []).forEach(sp => {
+              if (sp.date === todayStr) {
+                const loai = LOAI_OPTIONS.find(l=>l.value===sp.loai)||LOAI_OPTIONS[0];
+                const buoi = BUOI_OPTIONS.find(b=>b.value===sp.buoi)||BUOI_OPTIONS[0];
+                list.push({ type:"hoc", subjName:subj.name, rule:sp, loai, buoi });
+              }
+            });
+          });
+        } catch {}
+
+        // Parse examSubjects (monhoc)
+        try {
+          const mn = d.monhoc ? JSON.parse(d.monhoc) : null;
+          (mn?.subjects || []).forEach(subj => {
+            if (subj.examDate === todayStr)
+              list.push({ type:"thi", subjName:subj.name, examTime:subj.examTime, examRoom:subj.examRoom });
+          });
+        } catch {}
+
+        // Parse soanBaiData (soanbai)
+        try {
+          const sb = d.soanbai ? JSON.parse(d.soanbai) : null;
+          (sb?.subjects || []).forEach(subj => {
+            (subj.scheduleRows || []).forEach(row => {
+              if (!row.day) return;
+              const dow = DOW_MAP_VN[row.day];
+              if (dow !== undefined && now.getDay() === dow)
+                list.push({ type:"day", subjName:subj.name, row });
+            });
+          });
+        } catch {}
+
+        // Sort by time
+        const getSortTime = (s) => {
+          if (s.type==="hoc") {
+            const r = s.rule||{};
+            if (r.startTime){const[h,m]=r.startTime.split(":").map(Number);return h*60+m;}
+            const bv=s.buoi?.value||"sang";return bv==="sang"?420:bv==="chieu"?810:1050;
+          }
+          if (s.type==="thi"&&s.examTime){const[h,m]=s.examTime.split(":").map(Number);return h*60+m;}
+          if (s.type==="day"&&s.row?.startTime){const[h,m]=s.row.startTime.split(":").map(Number);return h*60+m;}
+          return 0;
+        };
+        list.sort((a,b) => getSortTime(a)-getSortTime(b));
+        setSessions(list);
+        setStatus("ok");
+      });
+      return () => unsub();
+    } catch { setStatus("error"); }
+  }, [targetUid]);
+
+  const saveName = () => {
+    localStorage.setItem("studytodo_nick_" + targetUid, nameInput.trim());
+    setNickname(nameInput.trim());
+    setEditingName(false);
+  };
+
+  const displayName = nickname || ("Thiết bị " + shortId);
+
+  return (
+    <div style={{ background:"#fff", border:"1.5px solid #e5e7eb", borderRadius:12, overflow:"hidden" }}>
+      {/* Card header */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px",
+        borderBottom: status==="ok" && sessions.length > 0 ? "1px solid #f3f4f6" : "none",
+        background:"#fafafa" }}>
+        <div style={{ width:8, height:8, borderRadius:"50%",
+          background: status==="loading" ? "#d1d5db" : status==="ok" ? "#22c55e" : "#ef4444",
+          flexShrink:0 }} />
+        {editingName ? (
+          <input autoFocus value={nameInput} onChange={e => setNameInput(e.target.value)}
+            onKeyDown={e => { if(e.key==="Enter") saveName(); if(e.key==="Escape") setEditingName(false); }}
+            style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:7, padding:"4px 8px",
+              fontSize:13, fontFamily:"inherit", outline:"none", color:"#111827" }} />
+        ) : (
+          <span style={{ flex:1, fontSize:13, fontWeight:700, color:"#374151" }}
+            onClick={() => { setNameInput(nickname); setEditingName(true); }}>
+            {displayName}
+            <span style={{ fontSize:10, color:"#d1d5db", marginLeft:5, fontWeight:400 }}>✎</span>
+          </span>
+        )}
+        {editingName ? (
+          <button onClick={saveName} style={{ background:"#111", border:"none", borderRadius:6,
+            color:"#fff", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>Lưu</button>
+        ) : (
+          <span style={{ fontSize:10, fontFamily:"monospace", color:"#9ca3af", background:"#f3f4f6",
+            borderRadius:5, padding:"2px 6px" }}>{shortId}</span>
+        )}
+        <button onClick={onRemove} style={{ background:"none", border:"none", cursor:"pointer",
+          color:"#d1d5db", padding:4, display:"flex", alignItems:"center" }}>
+          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      {/* Content */}
+      {status === "loading" && (
+        <div style={{ padding:"12px 14px", fontSize:12, color:"#9ca3af", fontWeight:500 }}>Đang tải...</div>
+      )}
+      {status === "error" && (
+        <div style={{ padding:"12px 14px", fontSize:12, color:"#ef4444", fontWeight:500 }}>
+          Không tìm thấy thiết bị này hoặc chưa bật đồng bộ.
+        </div>
+      )}
+      {status === "ok" && sessions.length === 0 && (
+        <div style={{ padding:"12px 14px", fontSize:12, color:"#9ca3af", fontWeight:500 }}>🎉 Hôm nay không có lịch</div>
+      )}
+      {status === "ok" && sessions.length > 0 && (
+        <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+          {sessions.map((s, i) => {
+            const isLast = i === sessions.length - 1;
+            const borderB = isLast ? "none" : "1px solid #f9fafb";
+            if (s.type === "thi") return (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 14px", borderBottom:borderB }}>
+                <span style={{ fontSize:14 }}>🔔</span>
+                <span style={{ flex:1, fontSize:13, fontWeight:700, color:"#111827" }}>{s.subjName}</span>
+                <span style={{ fontSize:11, fontWeight:700, background:"#dc2626", color:"#fff", borderRadius:20, padding:"1px 7px" }}>Thi</span>
+                {s.examTime && <span style={{ fontSize:12, color:"#dc2626", fontWeight:600 }}>{s.examTime}</span>}
+              </div>
+            );
+            if (s.type === "day") return (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 14px", borderBottom:borderB }}>
+                <span style={{ fontSize:14 }}>✏️</span>
+                <span style={{ flex:1, fontSize:13, fontWeight:700, color:"#111827" }}>{s.subjName}</span>
+                <span style={{ fontSize:11, fontWeight:700, background:"#a855f7", color:"#fff", borderRadius:20, padding:"1px 7px" }}>Dạy</span>
+                {s.row?.startTime && <span style={{ fontSize:12, color:"#7c3aed", fontWeight:600 }}>{s.row.startTime}</span>}
+              </div>
+            );
+            const buoi = s.buoi||BUOI_OPTIONS[0];
+            const loai = s.loai||LOAI_OPTIONS[0];
+            const rule = s.rule||{};
+            const timeLabel = rule.startTime ? rule.startTime : rule.tietFrom ? `T.${rule.tietFrom}` : buoi.label;
+            return (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 14px", borderBottom:borderB }}>
+                <span style={{ fontSize:14 }}>{loai.value==="lt"?"📖":"🔬"}</span>
+                <span style={{ flex:1, fontSize:13, fontWeight:700, color:"#111827", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.subjName}</span>
+                <span style={{ fontSize:11, fontWeight:700, background:loai.bg, color:loai.color, border:`1px solid ${loai.color}33`, borderRadius:20, padding:"1px 7px" }}>{loai.label}</span>
+                <span style={{ fontSize:12, color:buoi.color, fontWeight:600 }}>{timeLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiData }) {
   const { accent, accentLight, accentText } = theme;
   const now = new Date();
@@ -4197,7 +4502,7 @@ function App() {
 
         </div>
       ) : activeTab==="homnay" ? (
-        <HomNayPage theme={theme} isMobile={isMobile} lichHocData={lichHocData} examSubjects={data.subjects} soanBaiData={soanBaiData} todos={todos} setTodos={setTodos} />
+        <HomNayPage theme={theme} isMobile={isMobile} lichHocData={lichHocData} examSubjects={data.subjects} soanBaiData={soanBaiData} todos={todos} setTodos={setTodos} myUid={syncId} />
       ) : activeTab==="lichhoc" ? (
         <CalendarPage theme={theme} isMobile={isMobile} schedule={schedule} onScheduleChange={setSchedule} subjects={data.subjects} soanBaiData={soanBaiData} lichHocData={lichHocData} onLichHocChange={setLichHocData} />
       ) : activeTab==="soanbai" ? (
