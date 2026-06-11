@@ -118,7 +118,8 @@
     signInWithPopup,
     updatePassword,
     EmailAuthProvider,
-    reauthenticateWithCredential
+    reauthenticateWithCredential,
+    sendPasswordResetEmail
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -157,6 +158,7 @@
     }
     await updatePassword(user, newPassword);
   };
+  window._resetPassword = (email) => sendPasswordResetEmail(auth, email);
   window._isGoogleUser = () => {
     const user = auth.currentUser;
     return user ? user.providerData.some(p => p.providerId === "google.com") : false;
@@ -394,13 +396,14 @@ function ChangePasswordModal({ onClose }) {
 
 /* ─── LoginScreen ─── */
 function LoginScreen() {
-  const [mode, setMode] = useState("login"); // "login" | "register"
+  const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const errMap = {
     "auth/user-not-found": "Email không tồn tại.",
@@ -411,6 +414,18 @@ function LoginScreen() {
     "auth/invalid-email": "Email không hợp lệ.",
     "auth/too-many-requests": "Thử quá nhiều lần. Vui lòng thử lại sau.",
   };
+
+  async function handleForgot() {
+    setError("");
+    if (!email) { setError("Vui lòng nhập email."); return; }
+    setLoading(true);
+    try {
+      await window._resetPassword(email);
+      setForgotSent(true);
+    } catch(e) {
+      setError(errMap[e.code] || "Có lỗi xảy ra. Thử lại nhé.");
+    } finally { setLoading(false); }
+  }
 
   async function handleSubmit() {
     setError("");
@@ -443,19 +458,32 @@ function LoginScreen() {
 
         {/* Card */}
         <div style={{background:"#fff",borderRadius:20,boxShadow:"0 4px 24px rgba(0,0,0,.08)",padding:"28px 24px"}}>
-          {/* Mode tabs */}
-          <div style={{display:"flex",background:"#f3f4f6",borderRadius:12,padding:3,marginBottom:24}}>
-            {["login","register"].map(m => (
-              <button key={m} onClick={()=>{setMode(m);setError("");}}
-                style={{flex:1,padding:"9px 0",borderRadius:10,border:"none",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",
-                  background:mode===m?"#fff":"transparent",
-                  color:mode===m?"#111827":"#9ca3af",
-                  boxShadow:mode===m?"0 1px 4px rgba(0,0,0,.10)":"none",
-                  transition:"all .15s"}}>
-                {m==="login"?"Đăng nhập":"Đăng ký"}
+          {/* Mode tabs — ẩn khi đang ở forgot */}
+          {mode !== "forgot" && (
+            <div style={{display:"flex",background:"#f3f4f6",borderRadius:12,padding:3,marginBottom:24}}>
+              {["login","register"].map(m => (
+                <button key={m} onClick={()=>{setMode(m);setError("");setForgotSent(false);}}
+                  style={{flex:1,padding:"9px 0",borderRadius:10,border:"none",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",
+                    background:mode===m?"#fff":"transparent",
+                    color:mode===m?"#111827":"#9ca3af",
+                    boxShadow:mode===m?"0 1px 4px rgba(0,0,0,.10)":"none",
+                    transition:"all .15s"}}>
+                  {m==="login"?"Đăng nhập":"Đăng ký"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Forgot password view */}
+          {mode === "forgot" && (
+            <div style={{marginBottom:20}}>
+              <button onClick={()=>{setMode("login");setError("");setForgotSent(false);}} style={{background:"none",border:"none",color:"#6366f1",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:0,marginBottom:16,display:"flex",alignItems:"center",gap:4}}>
+                ← Quay lại đăng nhập
               </button>
-            ))}
-          </div>
+              <h3 style={{fontSize:16,fontWeight:800,color:"#111827",margin:"0 0 6px"}}>Quên mật khẩu</h3>
+              <p style={{fontSize:13,color:"#6b7280",margin:"0 0 16px",lineHeight:1.5}}>Nhập email của bạn — chúng tôi sẽ gửi link đặt lại mật khẩu về Gmail.</p>
+            </div>
+          )}
 
           {/* Fields */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -491,25 +519,55 @@ function LoginScreen() {
           )}
 
           {/* Submit */}
-          <button onClick={handleSubmit} disabled={loading}
-            style={{width:"100%",marginTop:18,padding:"14px 0",background:"#6366f1",border:"none",borderRadius:12,color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",opacity:loading?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"opacity .15s"}}>
-            {loading && <span style={{display:"inline-block",width:16,height:16,border:"2.5px solid rgba(255,255,255,.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
-            {mode==="login"?"Đăng nhập":"Tạo tài khoản"}
-          </button>
+          {mode === "forgot" ? (
+            forgotSent ? (
+              <div style={{textAlign:"center",padding:"8px 0 4px"}}>
+                <div style={{fontSize:36,marginBottom:10}}>📬</div>
+                <p style={{fontWeight:700,color:"#15803d",fontSize:15,margin:"0 0 6px"}}>Đã gửi email!</p>
+                <p style={{fontSize:13,color:"#6b7280",margin:"0 0 16px",lineHeight:1.5}}>Kiểm tra hộp thư Gmail (kể cả thư mục Spam) và bấm vào link để đặt lại mật khẩu.</p>
+                <button onClick={()=>{setMode("login");setForgotSent(false);setError("");}} style={{background:"#6366f1",border:"none",borderRadius:10,color:"#fff",padding:"11px 24px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>
+                  Về đăng nhập
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleForgot} disabled={loading}
+                style={{width:"100%",marginTop:4,padding:"14px 0",background:"#6366f1",border:"none",borderRadius:12,color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",opacity:loading?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                {loading && <span style={{display:"inline-block",width:16,height:16,border:"2.5px solid rgba(255,255,255,.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
+                Gửi link đặt lại mật khẩu
+              </button>
+            )
+          ) : (
+            <button onClick={handleSubmit} disabled={loading}
+              style={{width:"100%",marginTop:18,padding:"14px 0",background:"#6366f1",border:"none",borderRadius:12,color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",opacity:loading?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"opacity .15s"}}>
+              {loading && <span style={{display:"inline-block",width:16,height:16,border:"2.5px solid rgba(255,255,255,.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
+              {mode==="login"?"Đăng nhập":"Tạo tài khoản"}
+            </button>
+          )}
 
-          {/* Divider */}
-          <div style={{display:"flex",alignItems:"center",gap:10,margin:"16px 0 0"}}>
-            <div style={{flex:1,height:1,background:"#e5e7eb"}} />
-            <span style={{fontSize:12,color:"#9ca3af",fontWeight:600}}>HOẶC</span>
-            <div style={{flex:1,height:1,background:"#e5e7eb"}} />
-          </div>
+          {/* Quên mật khẩu link — chỉ hiện ở login mode */}
+          {mode === "login" && (
+            <div style={{textAlign:"right",marginTop:8}}>
+              <button onClick={()=>{setMode("forgot");setError("");}} style={{background:"none",border:"none",color:"#6366f1",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",padding:0}}>
+                Quên mật khẩu?
+              </button>
+            </div>
+          )}
 
-          {/* Google button */}
-          <button onClick={async()=>{setError("");setLoading(true);try{await window._signInGoogle();}catch(e){setError(e.code==="auth/popup-closed-by-user"?"Đã huỷ đăng nhập.":errMap[e.code]||"Đăng nhập Google thất bại.");}finally{setLoading(false);}}} disabled={loading}
+          {/* Divider — ẩn khi forgot */}
+          {mode !== "forgot" && (
+            <div style={{display:"flex",alignItems:"center",gap:10,margin:"16px 0 0"}}>
+              <div style={{flex:1,height:1,background:"#e5e7eb"}} />
+              <span style={{fontSize:12,color:"#9ca3af",fontWeight:600}}>HOẶC</span>
+              <div style={{flex:1,height:1,background:"#e5e7eb"}} />
+            </div>
+          )}
+
+          {/* Google button — ẩn khi forgot */}
+          {mode !== "forgot" && <button onClick={async()=>{setError("");setLoading(true);try{await window._signInGoogle();}catch(e){setError(e.code==="auth/popup-closed-by-user"?"Đã huỷ đăng nhập.":errMap[e.code]||"Đăng nhập Google thất bại.");}finally{setLoading(false);}}} disabled={loading}
             style={{width:"100%",marginTop:10,padding:"13px 0",background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,color:"#374151",fontSize:15,fontWeight:600,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.06)",transition:"box-shadow .15s"}}>
             <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
             Tiếp tục với Google
-          </button>
+          </button>}
         </div>
 
         <p style={{textAlign:"center",fontSize:13,color:"#d1d5db",marginTop:20}}>
