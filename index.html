@@ -309,8 +309,77 @@ function useFirebaseSync() {
 }
 
 
+
+/* ─── i18n System ─── */
+const VI_STRINGS = ["-- Chọn danh mục --", "-- Chọn ngày --", "Buổi", "Buổi / tuần", "Chia sẻ mã này cho người khác để họ xem lịch hôm nay của bạn.", "Chưa có bài nào", "Chưa có chi tiêu nào trong tháng này", "Chưa có dữ liệu", "Chưa có dữ liệu lớp dạy", "Chưa có lịch dạy", "Chưa có lịch dạy nào", "Chưa có môn dạy nào", "Chưa có môn học nào", "Chưa có việc gì", "Chưa đặt ngày thi", "Dạy thêm (tự tính từ Lớp dạy)", "Ghi chú", "Ghi chú lương", "Ghi chú nội dung", "Ghi chú nội dung bài học...", "Ghi chú thêm về lương, phụ cấp...", "Ghi chú thêm...", "Ghi chú tóm tắt nội dung bài học...", "Ghi chú...", "Giờ / tháng", "Giờ bắt đầu", "Giờ kết thúc", "HKII 2025-2026 · Chọn môn muốn nhập", "Hôm nay", "Hôm nay không có lịch nào", "Import lịch thi", "Khoản chi cứng khác", "Không có lịch nào 🎉", "Loại", "Lương / giờ (VND)", "Lương ước tính / tháng", "Lịch dạy", "Lịch dạy hàng tuần", "Lịch thi", "Lớp dạy", "Môn học", "Mật khẩu", "Mật khẩu hiện tại", "Mật khẩu mới", "Nguồn thu nhập khác", "Ngày dạy", "Ngày học", "Ngày thanh toán", "Ngày thi", "Nhập email của bạn — chúng tôi sẽ gửi link đặt lại mật khẩu về Gmail.", "Nhập mã thiết bị cần theo dõi...", "Nội dung sẽ được thêm sau", "Phân bổ", "Phòng / Địa điểm", "Phòng học", "Quy luật tuần", "Quên mật khẩu", "Quản lý học tập cá nhân", "Sao chép", "Số giờ / buổi", "Số tiền / tháng (nghìn đ)", "Số tuần / tháng", "Theo danh mục", "Theo môn", "Thi gần nhất", "Tháng", "Thêm", "Thêm việc cần làm...", "Thông tin đồng bộ", "Tiến trình tổng", "Tiến độ học tập", "Trống", "Tên bài", "Tên bài học...", "Tên file", "Tên khoản chi", "Tên môn học", "Tên môn học...", "Tên nguồn thu", "Tên tài liệu", "Tổng chi cứng", "Tổng chi hằng ngày", "Tổng quan", "Tổng thu nhập", "Từ tiết", "Từ tuần HK", "Tỷ lệ chi tiêu", "VD: Cuối tháng, ngày 5...", "VD: Freelance, Cho thuê, Cổ tức...", "VD: Phòng A101, Zoom...", "VD: Thuê nhà, Bảo hiểm, Gym...", "VD: Ăn sáng, Cà phê, Siêu thị...", "Xu hướng chi hằng ngày", "Xác nhận mật khẩu", "Xác nhận mật khẩu mới", "Đang tải...", "Đi làm / tháng (nghìn đ)", "Đã gửi email!", "Đã đặt ngày thi", "Đóng", "Đến tiết", "Đến tuần HK", "Đổi mật khẩu", "Đổi mật khẩu thành công!", "để thêm và đặt ngày thi.", "để thêm.", "Ước tính thu nhập", "Ứng dụng gặp lỗi", "⚠ Deadline gần", "⛽ Xăng / tháng (nghìn đ)", "✕ Bỏ lọc", "🎉 Hôm nay không có lịch", "🏷 Danh mục", "💰 Thu nhập", "💳 Tiết kiệm / tháng (nghìn đ)", "💵 Số tiền (nghìn đ)", "💾 Lưu", "💾 Lưu khoản chi", "💾 Lưu nguồn thu", "📅 Lịch thi", "📅 Ngày", "📊 Thống kê chi tiết", "📋 Chi tiêu hằng ngày", "📌 Cụ thể", "📝 Chi tiêu gì", "📥 Import lịch thi", "🔒 Chi tiêu cứng", "🔒 Đăng nhập bằng email — dữ liệu riêng tư, chỉ bạn mới truy cập được.", "🔝 Chi nhiều nhất tháng này", "Thêm môn học", "Xóa", "Hủy", "Lưu", "Bài học", "Hoàn thành", "Chưa xong", "Ngày mai", "Tuần này", "Xem tất cả", "Đăng nhập", "Đăng ký", "Đăng xuất", "Tạo tài khoản", "Tiếp tục với Google", "Quay lại đăng nhập", "Gửi link đặt lại mật khẩu", "Về đăng nhập", "Kiểm tra hộp thư Gmail (kể cả thư mục Spam) và bấm vào link để đặt lại mật khẩu.", "Đã lưu", "Đang kết nối...", "Offline", "ID TÀI KHOẢN CỦA BẠN", "Tài khoản Google — không cần mật khẩu hiện tại.", "Xác nhận", "Phiên đăng nhập quá cũ, vui lòng đăng xuất và đăng nhập lại.", "Có lỗi xảy ra. Thử lại nhé.", "Vui lòng nhập mật khẩu mới.", "Mật khẩu xác nhận không khớp.", "Vui lòng nhập mật khẩu hiện tại.", "Vui lòng nhập email.", "Vui lòng nhập đủ thông tin.", "Email hoặc mật khẩu không đúng.", "Email đã được đăng ký.", "Mật khẩu phải ít nhất 6 ký tự.", "Email không hợp lệ.", "Thử quá nhiều lần. Vui lòng thử lại sau.", "Email không tồn tại.", "Mật khẩu không đúng.", "Có lỗi xảy ra. Vui lòng thử lại.", "Chưa đăng nhập.", "Dữ liệu được mã hóa và đồng bộ riêng tư", "Nhập mã ID thiết bị", "Theo dõi thiết bị", "Thêm bài học", "Hoàn thành tất cả", "Bỏ hoàn thành tất cả", "Thêm môn", "Xóa môn", "Ngày thi", "Phòng thi", "Không có bài nào hôm nay 🎉", "ngày", "buổi", "tháng", "tuần", "tiết", "giờ", "Tất cả", "Đã xong"];
+
+const I18N_CACHE_KEY = "studytodo_i18n_en_v1";
+const LangContext = React.createContext({ lang: "vi", t: (s) => s, loading: false });
+
+function useLang() { return React.useContext(LangContext); }
+
+function LangProvider({ children }) {
+  const [lang, setLangState] = React.useState(() => localStorage.getItem("studytodo_lang") || "vi");
+  const [enMap, setEnMap] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(I18N_CACHE_KEY) || "null") || null; } catch { return null; }
+  });
+  const [loading, setLoading] = React.useState(false);
+
+  const t = React.useCallback((str) => {
+    if (lang === "vi" || !str) return str;
+    if (!enMap) return str;
+    return enMap[str] || str;
+  }, [lang, enMap]);
+
+  async function loadTranslations() {
+    setLoading(true);
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 4000,
+          messages: [{
+            role: "user",
+            content: `Translate these Vietnamese UI strings to English for a student study tracker app. Return ONLY a JSON object mapping each Vietnamese string to its English translation. Keep emoji, keep placeholders like "...", keep format strings like "(nghìn đ)" as "(thousand VND)". Be concise for UI labels. Strings:\n${JSON.stringify(VI_STRINGS, null, 2)}`
+          }]
+        })
+      });
+      const data = await resp.json();
+      const text = data.content?.map(c => c.text || "").join("");
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const map = JSON.parse(jsonMatch[0]);
+        localStorage.setItem(I18N_CACHE_KEY, JSON.stringify(map));
+        setEnMap(map);
+      }
+    } catch(e) {
+      console.error("i18n load failed:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function toggleLang() {
+    const next = lang === "vi" ? "en" : "vi";
+    localStorage.setItem("studytodo_lang", next);
+    setLangState(next);
+    if (next === "en" && !enMap) {
+      await loadTranslations();
+    }
+  }
+
+  return (
+    <LangContext.Provider value={{ lang, t, loading, toggleLang }}>
+      {children}
+    </LangContext.Provider>
+  );
+}
+
 /* ─── ChangePasswordModal ─── */
 function ChangePasswordModal({ onClose }) {
+  const { t } = useLang();
   const isGoogle = window._isGoogleUser && window._isGoogleUser();
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
@@ -357,7 +426,7 @@ function ChangePasswordModal({ onClose }) {
           <div style={{textAlign:"center",padding:"20px 0"}}>
             <div style={{fontSize:40,marginBottom:12}}>✅</div>
             <p style={{fontWeight:700,color:"#15803d",fontSize:15}}>Đổi mật khẩu thành công!</p>
-            <button onClick={onClose} style={{marginTop:16,background:"#6366f1",border:"none",borderRadius:10,color:"#fff",padding:"11px 28px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Đóng</button>
+            <button onClick={onClose} style={{marginTop:16,background:"#6366f1",border:"none",borderRadius:10,color:"#fff",padding:"11px 28px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>{t("Đóng")}</button>
           </div>
         ) : (
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -367,12 +436,12 @@ function ChangePasswordModal({ onClose }) {
               </div>
             )}
             {!isGoogle && (
-              <input type="password" placeholder="Mật khẩu hiện tại" value={currentPass}
+              <input type="password" placeholder={t("Mật khẩu hiện tại")} value={currentPass}
                 onChange={e=>setCurrentPass(e.target.value)} style={inputStyle} />
             )}
-            <input type="password" placeholder="Mật khẩu mới" value={newPass}
+            <input type="password" placeholder={t("Mật khẩu mới")} value={newPass}
               onChange={e=>setNewPass(e.target.value)} style={inputStyle} />
-            <input type="password" placeholder="Xác nhận mật khẩu mới" value={confirmPass}
+            <input type="password" placeholder={t("Xác nhận mật khẩu mới")} value={confirmPass}
               onChange={e=>setConfirmPass(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&handleSubmit()} style={inputStyle} />
 
@@ -396,6 +465,7 @@ function ChangePasswordModal({ onClose }) {
 
 /* ─── LoginScreen ─── */
 function LoginScreen() {
+  const { t } = useLang();
   const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -468,7 +538,7 @@ function LoginScreen() {
                     color:mode===m?"#111827":"#9ca3af",
                     boxShadow:mode===m?"0 1px 4px rgba(0,0,0,.10)":"none",
                     transition:"all .15s"}}>
-                  {m==="login"?"Đăng nhập":"Đăng ký"}
+                  {m==="login"?t("Đăng nhập"):t("Đăng ký")}
                 </button>
               ))}
             </div>
@@ -493,7 +563,7 @@ function LoginScreen() {
               style={inputStyle} autoComplete="email" />
 
             <div style={{position:"relative"}}>
-              <input type={showPass?"text":"password"} placeholder="Mật khẩu" value={password}
+              <input type={showPass?"text":"password"} placeholder={t("Mật khẩu")} value={password}
                 onChange={e=>setPassword(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
                 style={{...inputStyle,paddingRight:48}} autoComplete={mode==="login"?"current-password":"new-password"} />
@@ -504,7 +574,7 @@ function LoginScreen() {
             </div>
 
             {mode==="register" && (
-              <input type="password" placeholder="Xác nhận mật khẩu" value={confirmPassword}
+              <input type="password" placeholder={t("Xác nhận mật khẩu")} value={confirmPassword}
                 onChange={e=>setConfirmPassword(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&handleSubmit()}
                 style={inputStyle} autoComplete="new-password" />
@@ -540,7 +610,7 @@ function LoginScreen() {
             <button onClick={handleSubmit} disabled={loading}
               style={{width:"100%",marginTop:18,padding:"14px 0",background:"#6366f1",border:"none",borderRadius:12,color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",opacity:loading?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"opacity .15s"}}>
               {loading && <span style={{display:"inline-block",width:16,height:16,border:"2.5px solid rgba(255,255,255,.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
-              {mode==="login"?"Đăng nhập":"Tạo tài khoản"}
+              {mode==="login"?t("Đăng nhập"):t("Tạo tài khoản")}
             </button>
           )}
 
@@ -650,9 +720,10 @@ const PERIOD_COLORS = {
 
 /* ─── NavBar ─── */
 function NavBar({ activeTab, onTabChange, theme, isMobile }) {
+  const { t } = useLang();
   const NAV_ITEMS = [
     { id:"lichhoc",  icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, label:"Lịch" },
-    { id:"homnay",   icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>, label:"Hôm nay" },
+    { id:"homnay",   icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>, label:t("Hôm nay") },
     { id:"soanbai",  icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>, label:"Lớp dạy" },
     { id:"more",     icon: <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="19" cy="12" r="1.2" fill="currentColor"/></svg>, label:"Thêm" },
   ];
@@ -660,7 +731,7 @@ function NavBar({ activeTab, onTabChange, theme, isMobile }) {
   const MORE_ITEMS = [
     { id:"todo",     icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>, label:"To-do" },
     { id:"monhoc",   icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>, label:"Lớp học" },
-    { id:"taichinh", icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>, label:"Tài chính" },
+    { id:"taichinh", icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>, label:t("Tài chính") },
   ];
 
   const [showMore, setShowMore] = React.useState(false);
@@ -783,6 +854,7 @@ function loadTodos() {
 function saveTodos(t) { try { localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(t)); } catch {} }
 
 function TodoPage({ theme, isMobile, todos, setTodos }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const [input, setInput] = React.useState("");
   const [time, setTime] = React.useState("");
@@ -834,7 +906,7 @@ function TodoPage({ theme, isMobile, todos, setTodos }) {
         <div style={{ display:"flex", gap:8, alignItems:"stretch" }}>
           <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
             onKeyDown={e=>{ if(e.key==="Enter") addTodo(); }}
-            placeholder="Thêm việc cần làm..."
+            placeholder={t("Thêm việc cần làm...")}
             style={{ flex:1, minWidth:0, border:"1.5px solid #e5e7eb", borderRadius:10, padding:isMobile?"11px 12px":"9px 12px",
               fontSize:isMobile?15:14, fontFamily:"inherit", outline:"none", color:"#111827",
               background:"#fff", transition:"border-color .15s" }}
@@ -947,6 +1019,7 @@ function UploadButton({ lessonId, onUpload, isMobile }) {
 
 /* ─── MatItem: component riêng để dùng useState hợp lệ ─── */
 function MatItem({ mat, lessonId, isMobile, onDelete, onRename, onTogglePrinted }) {
+  const { t } = useLang();
   const [showImg, setShowImg] = useState(false);
   const isImg = mat.type?.startsWith("image/");
   const printed = !!mat.printed;
@@ -972,7 +1045,7 @@ function MatItem({ mat, lessonId, isMobile, onDelete, onRename, onTogglePrinted 
           isMobile={isMobile}
           style={{ flex: 1, fontSize: isMobile ? 13 : 12, color: printed ? "#15803d" : "#374151",
             textDecoration: printed ? "line-through" : "none", opacity: printed ? 0.75 : 1 }}
-          placeholder="Tên file" />
+          placeholder={t("Tên file")} />
         <button
           onClick={() => onTogglePrinted(!printed)}
           title={printed ? "Bỏ đánh dấu đã in" : "Đánh dấu đã in"}
@@ -1025,6 +1098,7 @@ function MatItem({ mat, lessonId, isMobile, onDelete, onRename, onTogglePrinted 
 /* ─── LessonDetailModal ─── */
 function LessonDetailModal({ lesson, accent, accentLight, accentText, isMobile, dot,
   onClose, onUpdate, onDelete, onUpload, onDeleteMat, onRenameMat, onTogglePrinted }) {
+  const { t } = useLang();
   const inputStyle = {
     background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8,
     color: "#374151", fontSize: isMobile ? 14 : 13, padding: isMobile ? "10px 12px" : "7px 10px",
@@ -1051,7 +1125,7 @@ function LessonDetailModal({ lesson, accent, accentLight, accentText, isMobile, 
           borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <span style={{ color: accent }}>{IC.filetext}</span>
           <EditableText value={lesson.title} onSave={t => onUpdate({ title: t })} isMobile={isMobile}
-            style={{ flex: 1, fontSize: isMobile ? 16 : 15, fontWeight: 700, color: "#111827" }} placeholder="Tên bài" />
+            style={{ flex: 1, fontSize: isMobile ? 16 : 15, fontWeight: 700, color: "#111827" }} placeholder={t("Tên bài")} />
           <button onClick={onDelete} style={{ color: "#fca5a5", background: "none", border: "none",
             cursor: "pointer", padding: 6, display: "flex", alignItems: "center", minHeight: 36 }}>{IC.trash}</button>
           <button onClick={onClose} style={{ color: "#9ca3af", background: "none", border: "none",
@@ -1076,7 +1150,7 @@ function LessonDetailModal({ lesson, accent, accentLight, accentText, isMobile, 
             <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: ".08em",
               textTransform: "uppercase", marginBottom: 6 }}>Ghi chú nội dung</div>
             <textarea value={lesson.note || ""} onChange={e => onUpdate({ note: e.target.value })}
-              placeholder="Ghi chú nội dung bài học..."
+              placeholder={t("Ghi chú nội dung bài học...")}
               style={{ ...inputStyle, minHeight: 90, resize: "vertical", lineHeight: 1.65 }} />
           </div>
 
@@ -1104,6 +1178,7 @@ function LessonDetailModal({ lesson, accent, accentLight, accentText, isMobile, 
 
 /* ─── TaiLieuDaySection ─── */
 function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) {
+  const { t } = useLang();
   const { accentLight, accentText } = theme;
   const [addingLesson, setAddingLesson] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -1230,16 +1305,16 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
           <input autoFocus value={newTitle}
             onChange={e => setNewTitle(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") addLesson(); if (e.key === "Escape") { setAddingLesson(false); setNewTitle(""); } }}
-            placeholder="Tên bài học..."
+            placeholder={t("Tên bài học...")}
             style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 9,
               color: "#111827", fontSize: isMobile ? 16 : 13, padding: isMobile ? "12px 14px" : "8px 12px",
               outline: "none" }} />
           <button onClick={addLesson} style={{ background: accent, border: "none", borderRadius: 9,
             color: "#fff", fontSize: isMobile ? 14 : 13, padding: isMobile ? "12px 18px" : "8px 14px",
-            cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>Thêm</button>
+            cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>{t("Thêm")}</button>
           <button onClick={() => { setAddingLesson(false); setNewTitle(""); }}
             style={{ background: "none", border: "none", color: "#9ca3af",
-              fontSize: isMobile ? 14 : 13, cursor: "pointer", flexShrink: 0 }}>Hủy</button>
+              fontSize: isMobile ? 14 : 13, cursor: "pointer", flexShrink: 0 }}>{t("Hủy")}</button>
         </div>
       ) : (
         <button onClick={() => setAddingLesson(true)} style={{
@@ -1272,6 +1347,7 @@ function TaiLieuDaySection({ lessons, onUpdate, theme, isMobile, dot, accent }) 
 
 /* ─── SoanBaiSubjectCard ─── */
 function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText, dot } = theme;
   const [activeSection, setActiveSection] = useState("tailieu");
   const [open, setOpen] = useState(false);
@@ -1317,7 +1393,7 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
         <button onClick={() => setOpen(v => !v)} style={{ background: "none", border: "none", cursor: "pointer", color: "#d1d5db", display: "flex", padding: isMobile ? 6 : 2, minWidth: isMobile ? 40 : 28, minHeight: isMobile ? 44 : "auto", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{IC.chevron(open)}</button>
         <span style={{ color: accent, flexShrink: 0 }}>{IC.pen}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <EditableText value={subject.name} onSave={n => onUpdate({ ...subject, name: n })} isMobile={isMobile} style={{ fontSize: isMobile ? 17 : 15, fontWeight: 700, color: "#111827", letterSpacing: "-.01em" }} placeholder="Tên môn học" />
+          <EditableText value={subject.name} onSave={n => onUpdate({ ...subject, name: n })} isMobile={isMobile} style={{ fontSize: isMobile ? 17 : 15, fontWeight: 700, color: "#111827", letterSpacing: "-.01em" }} placeholder={t("Tên môn học")} />
         </div>
         <button onClick={onDelete} style={{ color: "#e5e7eb", background: "none", border: "none", cursor: "pointer", display: "flex", padding: isMobile ? 6 : 4, minWidth: isMobile ? 40 : 28, minHeight: isMobile ? 44 : "auto", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{IC.trash}</button>
       </div>
@@ -1368,11 +1444,11 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
                     </div>
                     <div>
                       <span style={labelStyle}>Phòng / Địa điểm</span>
-                      <input value={row.room || ""} onChange={e => updateScheduleRow(idx, { room: e.target.value })} placeholder="VD: Phòng A101, Zoom..." style={inputStyle} />
+                      <input value={row.room || ""} onChange={e => updateScheduleRow(idx, { room: e.target.value })} placeholder={t("VD: Phòng A101, Zoom...")} style={inputStyle} />
                     </div>
                     <div>
                       <span style={labelStyle}>Ghi chú</span>
-                      <input value={row.note || ""} onChange={e => updateScheduleRow(idx, { note: e.target.value })} placeholder="Ghi chú thêm..." style={inputStyle} />
+                      <input value={row.note || ""} onChange={e => updateScheduleRow(idx, { note: e.target.value })} placeholder={t("Ghi chú thêm...")} style={inputStyle} />
                     </div>
                   </div>
                 ))}
@@ -1413,12 +1489,12 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
                 </div>
                 <div>
                   <span style={labelStyle}>Ngày thanh toán</span>
-                  <input value={salary.payDay || ""} onChange={e => updateSalary({ payDay: e.target.value })} placeholder="VD: Cuối tháng, ngày 5..." style={inputStyle} />
+                  <input value={salary.payDay || ""} onChange={e => updateSalary({ payDay: e.target.value })} placeholder={t("VD: Cuối tháng, ngày 5...")} style={inputStyle} />
                 </div>
               </div>
               <div>
                 <span style={labelStyle}>Ghi chú lương</span>
-                <textarea value={salary.note || ""} onChange={e => updateSalary({ note: e.target.value })} placeholder="Ghi chú thêm về lương, phụ cấp..." style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} />
+                <textarea value={salary.note || ""} onChange={e => updateSalary({ note: e.target.value })} placeholder={t("Ghi chú thêm về lương, phụ cấp...")} style={{ ...inputStyle, minHeight: 72, resize: "vertical" }} />
               </div>
               {/* Summary card */}
               <div style={{ background: `linear-gradient(135deg,${accentLight},#fff)`, border: `1px solid ${accent}22`, borderRadius: 12, padding: isMobile ? "14px 16px" : "14px 18px" }}>
@@ -1450,6 +1526,7 @@ function SoanBaiSubjectCard({ subject, theme, isMobile, onUpdate, onDelete }) {
 
 /* ─── SoanBaiPage ─── */
 function SoanBaiPage({ theme, isMobile, soanBaiData, setSoanBaiData }) {
+  const { t } = useLang();
   const { accent, dot } = theme;
   const [addingSubject, setAddingSubject] = useState(false);
   const [newName, setNewName] = useState("");
@@ -1488,9 +1565,9 @@ function SoanBaiPage({ theme, isMobile, soanBaiData, setSoanBaiData }) {
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") addSubject(); if (e.key === "Escape") { setAddingSubject(false); setNewName(""); } }}
-            placeholder="Tên môn học..." style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, color: "#111827", fontSize: isMobile ? 16 : 14, padding: isMobile ? "13px 16px" : "10px 14px", outline: "none", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }} />
-          <button onClick={addSubject} style={{ background: accent, border: "none", borderRadius: 10, color: "#fff", fontSize: isMobile ? 15 : 13, padding: isMobile ? "13px 20px" : "10px 18px", cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>Thêm</button>
-          <button onClick={() => { setAddingSubject(false); setNewName(""); }} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: isMobile ? 15 : 13, cursor: "pointer", flexShrink: 0 }}>Hủy</button>
+            placeholder={t("Tên môn học...")} style={{ flex: 1, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, color: "#111827", fontSize: isMobile ? 16 : 14, padding: isMobile ? "13px 16px" : "10px 14px", outline: "none", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }} />
+          <button onClick={addSubject} style={{ background: accent, border: "none", borderRadius: 10, color: "#fff", fontSize: isMobile ? 15 : 13, padding: isMobile ? "13px 20px" : "10px 18px", cursor: "pointer", fontWeight: 700, flexShrink: 0 }}>{t("Thêm")}</button>
+          <button onClick={() => { setAddingSubject(false); setNewName(""); }} style={{ background: "none", border: "none", color: "#9ca3af", fontSize: isMobile ? 15 : 13, cursor: "pointer", flexShrink: 0 }}>{t("Hủy")}</button>
         </div>
       ) : (
         <button onClick={() => setAddingSubject(true)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "none", border: `1.5px dashed ${dot}`, borderRadius: isMobile ? 14 : 12, color: "#9ca3af", fontSize: isMobile ? 15 : 13, padding: isMobile ? "16px 18px" : "14px 16px", cursor: "pointer", marginTop: 6, fontWeight: 500, minHeight: isMobile ? 56 : "auto" }}>
@@ -1541,13 +1618,14 @@ function EditableText({ value, onSave, style, placeholder, isMobile }) {
 
 /* ─── FileItem ─── */
 function FileItem({ file, onDelete, onRename, isMobile }) {
+  const { t } = useLang();
   const isImage = file.type?.startsWith("image/");
   const [showImg, setShowImg] = useState(false);
   return (
     <div style={{display:"flex",flexDirection:"column",gap:4}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:isMobile?"10px 12px":"6px 10px",background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8}}>
         <span style={{color:"#9ca3af",flexShrink:0}}>{IC.file}</span>
-        <EditableText value={file.name} onSave={onRename} style={{flex:1,fontSize:15,color:"#374151"}} placeholder="Tên tài liệu" isMobile={isMobile} />
+        <EditableText value={file.name} onSave={onRename} style={{flex:1,fontSize:15,color:"#374151"}} placeholder={t("Tên tài liệu")} isMobile={isMobile} />
         {isImage && <button onClick={() => setShowImg(v=>!v)} style={{fontSize:14,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",padding:"0 6px",minHeight:44,display:"flex",alignItems:"center"}}>{showImg?"ẩn":"xem"}</button>}
         {file.dataUrl && !isImage && <a href={file.dataUrl} download={file.name} style={{fontSize:14,color:"#9ca3af",textDecoration:"none",padding:"0 6px",minHeight:44,display:"flex",alignItems:"center"}}>tải</a>}
         <button onClick={onDelete} style={{color:"#d1d5db",background:"none",border:"none",cursor:"pointer",padding:isMobile?"0 4px":"0 2px",minWidth:36,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.trash}</button>
@@ -1585,6 +1663,7 @@ function MaterialsSection({ materials, onChange, isMobile }) {
 
 /* ─── LessonItem ─── */
 function LessonItem({ lesson, onUpdate, onDelete, accent, isMobile }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("summary");
   const update = (patch) => onUpdate({ ...lesson, ...patch });
@@ -1596,7 +1675,7 @@ function LessonItem({ lesson, onUpdate, onDelete, accent, isMobile }) {
         <button onClick={() => setOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",color:"#d1d5db",padding:isMobile?6:2,display:"flex",minWidth:32,minHeight:isMobile?44:"auto",alignItems:"center",justifyContent:"center",flexShrink:0}}>{IC.chevron(open)}</button>
         <input type="checkbox" checked={lesson.done} onChange={e => update({done:e.target.checked})} style={{accentColor:accent,width:isMobile?18:14,height:isMobile?18:14,cursor:"pointer",flexShrink:0}} />
         <EditableText value={lesson.title} onSave={t => update({title:t})} isMobile={isMobile}
-          style={{fontSize:isMobile?15:13,color:lesson.done?"#9ca3af":"#1f2937",textDecoration:lesson.done?"line-through":"none",flex:1}} placeholder="Tên bài" />
+          style={{fontSize:isMobile?15:13,color:lesson.done?"#9ca3af":"#1f2937",textDecoration:lesson.done?"line-through":"none",flex:1}} placeholder={t("Tên bài")} />
         {lesson.deadline && !isMobile && <CountdownBadge date={lesson.deadline} accent={accent} />}
         <button onClick={onDelete} style={{color:"#e5e7eb",background:"none",border:"none",cursor:"pointer",display:"flex",padding:isMobile?8:2,minWidth:isMobile?40:28,minHeight:isMobile?44:"auto",alignItems:"center",justifyContent:"center",flexShrink:0}}>{IC.trash}</button>
       </div>
@@ -1613,7 +1692,7 @@ function LessonItem({ lesson, onUpdate, onDelete, accent, isMobile }) {
               <button key={k} onClick={() => setTab(k)} style={{fontSize:isMobile?12:11,fontWeight:700,letterSpacing:".05em",textTransform:"uppercase",padding:isMobile?"10px 16px":"5px 12px",background:"none",border:"none",cursor:"pointer",color:tab===k?accent:"#9ca3af",borderBottom:tab===k?`2px solid ${accent}`:"2px solid transparent",marginBottom:-1}}>{label}</button>
             ))}
           </div>
-          {tab==="summary" && <textarea value={lesson.summary||""} onChange={e => update({summary:e.target.value})} placeholder="Ghi chú tóm tắt nội dung bài học..." style={{width:"100%",minHeight:isMobile?110:90,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,color:"#374151",fontSize:isMobile?15:13,lineHeight:1.75,padding:isMobile?"10px 12px":"8px 10px",resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}} />}
+          {tab==="summary" && <textarea value={lesson.summary||""} onChange={e => update({summary:e.target.value})} placeholder={t("Ghi chú tóm tắt nội dung bài học...")} style={{width:"100%",minHeight:isMobile?110:90,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,color:"#374151",fontSize:isMobile?15:13,lineHeight:1.75,padding:isMobile?"10px 12px":"8px 10px",resize:"vertical",outline:"none",fontFamily:"inherit",boxSizing:"border-box"}} />}
           {tab==="materials" && <MaterialsSection materials={lesson.materials||[]} onChange={mats => update({materials:mats})} isMobile={isMobile} />}
         </div>
       )}
@@ -1642,6 +1721,7 @@ function MiniProgressChart({ subjects, accent }) {
 
 /* ─── Dashboard ─── */
 function Dashboard({ subjects, theme, isMobile }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const totalSubjects = subjects.length;
   const totalLessons = subjects.reduce((a,s)=>a+(s.lessons?.length||0),0);
@@ -1651,7 +1731,7 @@ function Dashboard({ subjects, theme, isMobile }) {
   subjects.forEach(s=>(s.lessons||[]).forEach(l=>{ if(!l.done&&l.deadline){const d=daysLeft(l.deadline);if(d!==null&&d>=0&&d<=7)upcoming.push({subjectName:s.name,lessonTitle:l.title,days:d});}}));
   upcoming.sort((a,b)=>a.days-b.days);
   const nextExam = [...subjects].filter(s=>s.examDate&&daysLeft(s.examDate)!==null&&daysLeft(s.examDate)>=0).sort((a,b)=>new Date(a.examDate)-new Date(b.examDate))[0];
-  const statItems = [{label:"Môn học",value:totalSubjects},{label:"Bài học",value:totalLessons},{label:"Hoàn thành",value:doneLessons},{label:"Tiến độ",value:`${pct}%`}];
+  const statItems = [{label:t("Môn học"),value:totalSubjects},{label:"Bài học",value:totalLessons},{label:"Hoàn thành",value:doneLessons},{label:"Tiến độ",value:`${pct}%`}];
   return (
     <div style={{background:`linear-gradient(135deg,${accentLight} 0%,#fff 65%)`,border:`1px solid ${accent}22`,borderRadius:isMobile?14:16,padding:isMobile?"16px 16px":"20px 24px",marginBottom:isMobile?16:20}}>
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:isMobile?14:16}}><span style={{color:accent}}>{IC.chart}</span><span style={{fontSize:13,fontWeight:700,letterSpacing:".1em",textTransform:"uppercase",color:accentText}}>Tổng quan</span></div>
@@ -1669,7 +1749,7 @@ function Dashboard({ subjects, theme, isMobile }) {
       </div>
       <div style={{display:"flex",gap:isMobile?12:16,flexWrap:isMobile?"wrap":"nowrap",alignItems:"flex-start"}}>
         {subjects.length>1&&<div style={{flex:isMobile?"0 0 auto":1,minWidth:0}}><div style={{fontSize:12,color:"#9ca3af",marginBottom:5,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>Theo môn</div><MiniProgressChart subjects={subjects} accent={accent} /></div>}
-        {upcoming.length>0&&<div style={{flex:isMobile?"1 0 60%":1.6,minWidth:0}}><div style={{fontSize:12,color:"#dc2626",marginBottom:6,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>⚠ Deadline gần</div>{upcoming.slice(0,isMobile?2:3).map((u,i)=><div key={i} style={{fontSize:isMobile?12.5:12,color:"#374151",marginBottom:4,display:"flex",justifyContent:"space-between",gap:6}}><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{color:"#9ca3af"}}>{u.subjectName} · </span>{u.lessonTitle}</span><span style={{color:u.days===0?"#dc2626":u.days<=2?"#d97706":"#6b7280",fontWeight:700,flexShrink:0}}>{u.days===0?"Hôm nay":`${u.days}d`}</span></div>)}</div>}
+        {upcoming.length>0&&<div style={{flex:isMobile?"1 0 60%":1.6,minWidth:0}}><div style={{fontSize:12,color:"#dc2626",marginBottom:6,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>⚠ Deadline gần</div>{upcoming.slice(0,isMobile?2:3).map((u,i)=><div key={i} style={{fontSize:isMobile?12.5:12,color:"#374151",marginBottom:4,display:"flex",justifyContent:"space-between",gap:6}}><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}><span style={{color:"#9ca3af"}}>{u.subjectName} · </span>{u.lessonTitle}</span><span style={{color:u.days===0?"#dc2626":u.days<=2?"#d97706":"#6b7280",fontWeight:700,flexShrink:0}}>{u.days===0?t("Hôm nay"):`${u.days}d`}</span></div>)}</div>}
         {nextExam&&<div style={{flex:isMobile?"1 0 35%":1,minWidth:0}}><div style={{fontSize:12,color:"#9ca3af",marginBottom:5,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>Thi gần nhất</div><div style={{fontSize:isMobile?13:12.5,fontWeight:700,color:accentText,marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{nextExam.name}</div><CountdownBadge date={nextExam.examDate} accent={accent} large /></div>}
       </div>
     </div>
@@ -1678,6 +1758,7 @@ function Dashboard({ subjects, theme, isMobile }) {
 
 /* ─── SubjectCard ─── */
 function SubjectCard({ subject, onUpdate, onDelete, theme, isMobile }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(true);
   const [addingLesson, setAddingLesson] = useState(false);
   const [newLesson, setNewLesson] = useState("");
@@ -1697,7 +1778,7 @@ function SubjectCard({ subject, onUpdate, onDelete, theme, isMobile }) {
         <button onClick={() => setOpen(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",color:"#d1d5db",display:"flex",padding:isMobile?6:2,minWidth:isMobile?40:28,minHeight:isMobile?44:"auto",alignItems:"center",justifyContent:"center",flexShrink:0}}>{IC.chevron(open)}</button>
         <span style={{color:theme.accent,flexShrink:0}}>{IC.book}</span>
         <div style={{flex:1,minWidth:0}}>
-          <EditableText value={subject.name} onSave={n=>update({name:n})} isMobile={isMobile} style={{fontSize:isMobile?17:15,fontWeight:700,color:"#111827",letterSpacing:"-.01em"}} placeholder="Tên môn học" />
+          <EditableText value={subject.name} onSave={n=>update({name:n})} isMobile={isMobile} style={{fontSize:isMobile?17:15,fontWeight:700,color:"#111827",letterSpacing:"-.01em"}} placeholder={t("Tên môn học")} />
         </div>
         {!isMobile&&<CountdownBadge date={subject.examDate} accent={theme.accent} />}
         <button onClick={onDelete} style={{color:"#e5e7eb",background:"none",border:"none",cursor:"pointer",display:"flex",padding:isMobile?6:4,minWidth:isMobile?40:28,minHeight:isMobile?44:"auto",alignItems:"center",justifyContent:"center",flexShrink:0}}>{IC.trash}</button>
@@ -1716,9 +1797,9 @@ function SubjectCard({ subject, onUpdate, onDelete, theme, isMobile }) {
           {(subject.lessons||[]).map(l=><LessonItem key={l.id} lesson={l} accent={theme.accent} isMobile={isMobile} onUpdate={data=>updateLesson(l.id,data)} onDelete={()=>deleteLesson(l.id)} />)}
           {addingLesson?(
             <div style={{display:"flex",gap:6,marginTop:8}}>
-              <input autoFocus value={newLesson} onChange={e=>setNewLesson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addLesson();if(e.key==="Escape"){setAddingLesson(false);setNewLesson("");}}} placeholder="Tên bài học..." style={{flex:1,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,color:"#1f2937",fontSize:isMobile?16:13,padding:isMobile?"10px 14px":"7px 10px",outline:"none"}} />
-              <button onClick={addLesson} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:isMobile?15:12,padding:isMobile?"10px 18px":"7px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Thêm</button>
-              <button onClick={()=>{setAddingLesson(false);setNewLesson("");}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:isMobile?15:12,cursor:"pointer",flexShrink:0}}>Hủy</button>
+              <input autoFocus value={newLesson} onChange={e=>setNewLesson(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addLesson();if(e.key==="Escape"){setAddingLesson(false);setNewLesson("");}}} placeholder={t("Tên bài học...")} style={{flex:1,background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,color:"#1f2937",fontSize:isMobile?16:13,padding:isMobile?"10px 14px":"7px 10px",outline:"none"}} />
+              <button onClick={addLesson} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:isMobile?15:12,padding:isMobile?"10px 18px":"7px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>{t("Thêm")}</button>
+              <button onClick={()=>{setAddingLesson(false);setNewLesson("");}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:isMobile?15:12,cursor:"pointer",flexShrink:0}}>{t("Hủy")}</button>
             </div>
           ):(
             <button onClick={()=>setAddingLesson(true)} style={{display:"flex",alignItems:"center",gap:6,marginTop:8,background:"none",border:"none",color:"#d1d5db",fontSize:isMobile?14:12,cursor:"pointer",padding:isMobile?"8px 0":"4px 0",minHeight:isMobile?44:"auto"}}>
@@ -1898,6 +1979,7 @@ const DOW_OPTIONS = [
 ];
 
 function RuleForm({ rule, onChange, onDelete, theme, isMobile }) {
+  const { t } = useLang();
   const inp = { background:"#f9fafb", border:"1px solid #e5e7eb", borderRadius:7, color:"#374151",
     fontSize: isMobile?14:13, padding: isMobile?"9px 10px":"6px 10px", outline:"none",
     fontFamily:"inherit", width:"100%", cursor:"pointer" };
@@ -2012,7 +2094,7 @@ function RuleForm({ rule, onChange, onDelete, theme, isMobile }) {
         <div style={{ flex:1 }}>
           <span style={lbl}>Ghi chú</span>
           <input value={rule.note||""} onChange={e=>upd("note",e.target.value)}
-            placeholder="Ghi chú thêm..." style={inp} />
+            placeholder={t("Ghi chú thêm...")} style={inp} />
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:5, flexShrink:0, paddingBottom:2 }}>
           <span style={{ fontSize:13, fontWeight:700, background:buoi.bg,
@@ -2031,6 +2113,7 @@ function RuleForm({ rule, onChange, onDelete, theme, isMobile }) {
 }
 
 function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, semesterStart }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText, dot } = theme;
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("rules"); // "rules" | "specific"
@@ -2127,7 +2210,7 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
           <EditableText value={subject.name}
             onSave={n => onUpdate({ ...subject, name: n })} isMobile={isMobile}
             style={{ fontSize: isMobile?17:15, fontWeight:700, color:"#111827", letterSpacing:"-.01em" }}
-            placeholder="Tên môn học" />
+            placeholder={t("Tên môn học")} />
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
           {rules.length > 0 && (
@@ -2302,7 +2385,7 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
                     <div>
                       <span style={lbl}>Ghi chú</span>
                       <input value={specForm.note||""} onChange={e=>updSpec("note",e.target.value)}
-                        placeholder="Ghi chú..." style={inp} />
+                        placeholder={t("Ghi chú...")} style={inp} />
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
@@ -2312,7 +2395,7 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
                       Thêm buổi
                     </button>
                     <button onClick={()=>setAddingSpec(false)} style={{ background:"none", border:"none",
-                      color:"#9ca3af", fontSize: isMobile?14:13, cursor:"pointer" }}>Hủy</button>
+                      color:"#9ca3af", fontSize: isMobile?14:13, cursor:"pointer" }}>{t("Hủy")}</button>
                   </div>
                 </div>
               ) : (
@@ -2416,6 +2499,7 @@ function LichHocSubjectCard({ subject, theme, isMobile, onUpdate, onDelete, seme
 }
 /* ─── HomNayPage ─── */
 function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, todos, setTodos, myUid }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const now = new Date();
   const todayStr = toDateKey(now);
@@ -2765,7 +2849,7 @@ function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, t
             <div style={{ display:"flex", gap:7, marginBottom:10, alignItems:"stretch" }}>
               <input ref={todoInputRef} value={todoInput} onChange={e=>setTodoInput(e.target.value)}
                 onKeyDown={e=>{ if(e.key==="Enter") addTodo(); }}
-                placeholder="Thêm việc cần làm..."
+                placeholder={t("Thêm việc cần làm...")}
                 style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:10,
                   padding:isMobile?"10px 12px":"8px 12px", fontSize:isMobile?14:13,
                   fontFamily:"inherit", outline:"none", color:"#111827", background:"#fff",
@@ -2849,6 +2933,7 @@ function HomNayPage({ theme, isMobile, lichHocData, examSubjects, soanBaiData, t
 
 /* ─── WatchDeviceSection ─── */
 function WatchDeviceSection({ theme, isMobile, myUid }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const [open, setOpen] = React.useState(false);
   const [inputCode, setInputCode] = React.useState("");
@@ -2932,7 +3017,7 @@ function WatchDeviceSection({ theme, isMobile, myUid }) {
           <div style={{ display:"flex", gap:7, marginBottom:10 }}>
             <input value={inputCode} onChange={e => setInputCode(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") addWatch(); }}
-              placeholder="Nhập mã thiết bị cần theo dõi..."
+              placeholder={t("Nhập mã thiết bị cần theo dõi...")}
               style={{ flex:1, border:"1.5px solid #e5e7eb", borderRadius:10, padding: isMobile?"10px 12px":"8px 12px",
                 fontSize: isMobile?14:13, fontFamily:"inherit", outline:"none", color:"#111827", background:"#fff" }} />
             <button onClick={addWatch} style={{ background:"#111", border:"none", borderRadius:10,
@@ -2962,6 +3047,7 @@ function WatchDeviceSection({ theme, isMobile, myUid }) {
 
 /* ─── WatchedDeviceCard ─── */
 function WatchedDeviceCard({ uid: targetUid, theme, isMobile, onRemove }) {
+  const { t } = useLang();
   const { accent, accentLight } = theme;
   const [status, setStatus] = React.useState("loading"); // loading | ok | error
   const [sessions, setSessions] = React.useState([]);
@@ -3083,7 +3169,7 @@ function WatchedDeviceCard({ uid: targetUid, theme, isMobile, onRemove }) {
         )}
         {editingName ? (
           <button onClick={saveName} style={{ background:"#111", border:"none", borderRadius:6,
-            color:"#fff", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>Lưu</button>
+            color:"#fff", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>{t("Lưu")}</button>
         ) : (
           <span style={{ fontSize:10, fontFamily:"monospace", color:"#9ca3af", background:"#f3f4f6",
             borderRadius:5, padding:"2px 6px" }}>{shortId}</span>
@@ -3149,6 +3235,7 @@ function WatchedDeviceCard({ uid: targetUid, theme, isMobile, onRemove }) {
 }
 
 function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiData }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
@@ -3387,7 +3474,7 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
             icon:<svg width="15" height="15" fill="none" stroke="#5c6bc0" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> },
           { key:"th",  label:"Thực hành", color:"#0891b2", bg:"#e0f2fe", border:"#bae6fd",
             icon:<svg width="15" height="15" fill="none" stroke="#0891b2" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 3h6v7l3 9H6l3-9V3z"/><line x1="6" y1="3" x2="18" y2="3"/></svg> },
-          { key:"thi", label:"Lịch thi",  color:"#dc2626", bg:"#fef2f2", border:"#fecaca",
+          { key:"thi", label:t("Lịch thi"),  color:"#dc2626", bg:"#fef2f2", border:"#fecaca",
             icon:<svg width="15" height="15" fill="none" stroke="#dc2626" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> },
           { key:"day", label:"Lịch dạy",  color:"#a855f7", bg:"#faf5ff", border:"#e9d5ff",
             icon:<svg width="15" height="15" fill="#a855f7" stroke="#a855f7" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3" fill="#fff" stroke="#fff"/></svg> },
@@ -3529,6 +3616,7 @@ function LichHocMonthView({ lichHocData, theme, isMobile, examSubjects, soanBaiD
 
 /* ─── CalendarPage → LichHocPage ─── */
 function CalendarPage({ theme, isMobile, schedule, onScheduleChange, subjects, soanBaiData, lichHocData, onLichHocChange }) {
+  const { t } = useLang();
   // lichHocData is now managed by App for cross-device sync
   const setLichHocData = onLichHocChange;
 
@@ -3565,7 +3653,7 @@ function CalendarPage({ theme, isMobile, schedule, onScheduleChange, subjects, s
         {[
           ["calendar", IC.calendar, "Lịch tháng"],
           ["manage",   IC.book,     "Quản lý môn"],
-          ["lithi",    IC.flag,     "Lịch thi"],
+          ["lithi",    IC.flag,     t("Lịch thi")],
           ["lichdaytong", IC.pen,   "Lịch dạy"],
         ].map(([k, icon, label]) => (
           <button key={k} onClick={()=>setActiveSection(k)} style={{
@@ -3654,17 +3742,17 @@ function CalendarPage({ theme, isMobile, schedule, onScheduleChange, subjects, s
             <div style={{ display:"flex", gap:8, marginTop:10 }}>
               <input autoFocus value={newName} onChange={e=>setNewName(e.target.value)}
                 onKeyDown={e=>{if(e.key==="Enter")addSubject();if(e.key==="Escape"){setAddingSubject(false);setNewName("");}}}
-                placeholder="Tên môn học..." style={{ flex:1, background:"#fff",
+                placeholder={t("Tên môn học...")} style={{ flex:1, background:"#fff",
                   border:"1px solid #e5e7eb", borderRadius:10, color:"#111827",
                   fontSize: isMobile?16:14, padding: isMobile?"13px 16px":"10px 14px",
                   outline:"none", boxShadow:"0 1px 4px rgba(0,0,0,.06)" }} />
               <button onClick={addSubject} style={{ background:accent, border:"none",
                 borderRadius:10, color:"#fff", fontSize: isMobile?15:13,
                 padding: isMobile?"13px 20px":"10px 18px", cursor:"pointer",
-                fontWeight:700, flexShrink:0 }}>Thêm</button>
+                fontWeight:700, flexShrink:0 }}>{t("Thêm")}</button>
               <button onClick={()=>{setAddingSubject(false);setNewName("");}} style={{
                 background:"none", border:"none", color:"#9ca3af",
-                fontSize: isMobile?15:13, cursor:"pointer", flexShrink:0 }}>Hủy</button>
+                fontSize: isMobile?15:13, cursor:"pointer", flexShrink:0 }}>{t("Hủy")}</button>
             </div>
           ) : (
             <button onClick={()=>setAddingSubject(true)} style={{ display:"flex",
@@ -3948,6 +4036,7 @@ function MonthBarChart({ months, accent }) {
 
 /* ─── TaiChinhPage ─── */
 function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText, dot } = theme;
   const [showThuNhap, setShowThuNhap] = useState(false);
   const [showChiCung, setShowChiCung] = useState(false);
@@ -4216,7 +4305,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
               <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10, marginBottom:10 }}>
                 <div>
                   <span style={labelS}>Tên nguồn thu</span>
-                  <input value={newThuNhap.noidung} onChange={e=>setNewThuNhap(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addThuNhap();}} placeholder="VD: Freelance, Cho thuê, Cổ tức..." style={inputS} />
+                  <input value={newThuNhap.noidung} onChange={e=>setNewThuNhap(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addThuNhap();}} placeholder={t("VD: Freelance, Cho thuê, Cổ tức...")} style={inputS} />
                 </div>
                 <div>
                   <span style={labelS}>Số tiền / tháng (nghìn đ)</span>
@@ -4233,7 +4322,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={addThuNhap} style={{ flex:1, background:"#16a34a", border:"none", borderRadius:8, color:"#fff", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:700 }}>💾 Lưu nguồn thu</button>
-                <button onClick={()=>{setShowAddThuNhap(false);setNewThuNhap({noidung:"",sotien:"",icon:"💵"});}} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>Hủy</button>
+                <button onClick={()=>{setShowAddThuNhap(false);setNewThuNhap({noidung:"",sotien:"",icon:"💵"});}} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>{t("Hủy")}</button>
               </div>
             </div>
           )}
@@ -4300,7 +4389,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
               <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr", gap:10, marginBottom:10 }}>
                 <div>
                   <span style={labelS}>Tên khoản chi</span>
-                  <input value={newChiCung.noidung} onChange={e=>setNewChiCung(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addChiCung();}} placeholder="VD: Thuê nhà, Bảo hiểm, Gym..." style={inputS} />
+                  <input value={newChiCung.noidung} onChange={e=>setNewChiCung(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addChiCung();}} placeholder={t("VD: Thuê nhà, Bảo hiểm, Gym...")} style={inputS} />
                 </div>
                 <div>
                   <span style={labelS}>Số tiền / tháng (nghìn đ)</span>
@@ -4317,7 +4406,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
               </div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={addChiCung} style={{ flex:1, background:"#b45309", border:"none", borderRadius:8, color:"#fff", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:700 }}>💾 Lưu khoản chi</button>
-                <button onClick={()=>{setShowAddChiCung(false);setNewChiCung({noidung:"",sotien:"",icon:"🔒"});}} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>Hủy</button>
+                <button onClick={()=>{setShowAddChiCung(false);setNewChiCung({noidung:"",sotien:"",icon:"🔒"});}} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>{t("Hủy")}</button>
               </div>
             </div>
           )}
@@ -4374,7 +4463,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
                   </div>
                   <div>
                     <span style={labelS}>📝 Chi tiêu gì</span>
-                    <input value={newChiTieu.noidung} onChange={e=>setNewChiTieu(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addChiTieu();}} placeholder="VD: Ăn sáng, Cà phê, Siêu thị..." style={inputS} />
+                    <input value={newChiTieu.noidung} onChange={e=>setNewChiTieu(d=>({...d,noidung:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter")addChiTieu();}} placeholder={t("VD: Ăn sáng, Cà phê, Siêu thị...")} style={inputS} />
                   </div>
                   <div>
                     <span style={labelS}>🏷 Danh mục</span>
@@ -4385,7 +4474,7 @@ function TaiChinhPage({ theme, isMobile, taiChinh, setTaiChinh, soanBaiData }) {
                   </div>
                   <div style={{ display:"flex", gap:8 }}>
                     <button onClick={addChiTieu} style={{ flex:1, background:"#be185d", border:"none", borderRadius:8, color:"#fff", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:700 }}>💾 Lưu</button>
-                    <button onClick={()=>{setShowAddChiTieu(false);setNewChiTieu({ngay:today(),noidung:"",sotien:"",danhmuc:""}); }} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>Hủy</button>
+                    <button onClick={()=>{setShowAddChiTieu(false);setNewChiTieu({ngay:today(),noidung:"",sotien:"",danhmuc:""}); }} style={{ flex:1, background:"#f3f4f6", border:"none", borderRadius:8, color:"#6b7280", fontSize:isMobile?15:13, padding:isMobile?"12px":"8px", cursor:"pointer", fontWeight:600 }}>{t("Hủy")}</button>
                   </div>
                 </div>
               )}
@@ -4450,6 +4539,7 @@ const IMPORT_DATA = [
   { name:"Bào chế & Công nghệ dược 1",              examDate:"2026-07-23", examTime:"13:30", examRoom:"PM5_B_T3" },
 ];
 function ImportLichThiModal({ theme, isMobile, onClose, onImport }) {
+  const { t } = useLang();
   const { accent, accentLight, accentText } = theme;
   const [selected, setSelected] = React.useState(() => new Set(IMPORT_DATA.map((_,i)=>i)));
   const toggle = (i) => setSelected(s=>{ const n=new Set(s); n.has(i)?n.delete(i):n.add(i); return n; });
@@ -4498,7 +4588,7 @@ function ImportLichThiModal({ theme, isMobile, onClose, onImport }) {
         </div>
         {/* Footer */}
         <div style={{marginTop:16,display:"flex",gap:10}}>
-          <button onClick={onClose} style={{flex:1,background:"#f3f4f6",border:"none",borderRadius:12,padding:"13px",cursor:"pointer",fontWeight:700,fontSize:15,color:"#6b7280"}}>Hủy</button>
+          <button onClick={onClose} style={{flex:1,background:"#f3f4f6",border:"none",borderRadius:12,padding:"13px",cursor:"pointer",fontWeight:700,fontSize:15,color:"#6b7280"}}>{t("Hủy")}</button>
           <button onClick={handleImport} disabled={selected.size===0} style={{flex:2,background:selected.size===0?"#e5e7eb":accent,border:"none",borderRadius:12,padding:"13px",cursor:selected.size===0?"default":"pointer",fontWeight:800,fontSize:15,color:"#fff",transition:"background .15s"}}>
             Nhập {selected.size} môn
           </button>
@@ -4667,6 +4757,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function App() {
+  const { t, lang, toggleLang, loading: langLoading } = useLang();
   const isMobile = useIsMobile();
   const [data, setData] = useState(() => loadData());
   const [schedule, setSchedule] = useState(() => loadSchedule());
@@ -4792,9 +4883,17 @@ function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:isMobile?10:8}}>
             {/* Sync status */}
-            <button onClick={()=>setShowSyncId(v=>!v)} title="Thông tin đồng bộ" style={{background:syncOk?"#f0fdf4":fbReady?"#fffbeb":"#f9fafb",border:`1px solid ${syncOk?"#bbf7d0":fbReady?"#fde68a":"#e5e7eb"}`,borderRadius:8,padding:isMobile?"7px 10px":"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:isMobile?12:11,color:syncOk?"#15803d":fbReady?"#92400e":"#9ca3af",fontWeight:700}}>
+            {/* Lang toggle */}
+            <button onClick={toggleLang} title={t("Chuyển ngôn ngữ / Switch language")}
+              style={{background:"#f9fafb",border:"1px solid #e5e7eb",borderRadius:8,padding:isMobile?"7px 10px":"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,fontSize:isMobile?12:11,color:"#374151",fontWeight:700,minWidth:isMobile?44:36}}>
+              {langLoading
+                ? <span style={{display:"inline-block",width:10,height:10,border:"2px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />
+                : <span>{lang==="vi"?"🇻🇳":"🇬🇧"}</span>}
+              {!isMobile && <span>{lang==="vi"?"VI":"EN"}</span>}
+            </button>
+            <button onClick={()=>setShowSyncId(v=>!v)} title={t("Thông tin đồng bộ")} style={{background:syncOk?"#f0fdf4":fbReady?"#fffbeb":"#f9fafb",border:`1px solid ${syncOk?"#bbf7d0":fbReady?"#fde68a":"#e5e7eb"}`,borderRadius:8,padding:isMobile?"7px 10px":"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:isMobile?12:11,color:syncOk?"#15803d":fbReady?"#92400e":"#9ca3af",fontWeight:700}}>
               {syncing ? <span style={{display:"inline-block",width:10,height:10,border:"2px solid currentColor",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /> : <span>{syncOk?"☁️✓":fbReady?"☁️":"○"}</span>}
-              {!isMobile && (syncOk?"Đã lưu":fbReady?"Đang kết nối...":"Offline")}
+              {!isMobile && (syncOk?t("Đã lưu"):fbReady?t("Đang kết nối..."):t("Offline"))}
             </button>
           </div>
         </div>
@@ -4804,7 +4903,7 @@ function App() {
             <div style={{fontSize:13,color:"#9ca3af",fontWeight:600,marginBottom:6,marginTop:10}}>ID TÀI KHOẢN CỦA BẠN</div>
             <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
               <code style={{flex:1,background:"#f3f4f6",borderRadius:8,padding:"8px 12px",fontSize:13,color:"#374151",letterSpacing:".03em",wordBreak:"break-all"}}>{syncId || "Đang đăng nhập..."}</code>
-              {syncId && <button onClick={()=>{navigator.clipboard.writeText(syncId);}} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:14,padding:"8px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Sao chép</button>}
+              {syncId && <button onClick={()=>{navigator.clipboard.writeText(syncId);}} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:14,padding:"8px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>{t("Sao chép")}</button>}
             </div>
             <p style={{fontSize:13,color:"#6b7280",marginTop:4}}>🔒 Đăng nhập bằng email — dữ liệu riêng tư, chỉ bạn mới truy cập được.</p>
             {authEmail && <p style={{fontSize:13,color:"#9ca3af",marginTop:4}}>📧 {authEmail}</p>}
@@ -4827,13 +4926,13 @@ function App() {
             <div>{data.subjects.length>0&&<p style={{margin:0,fontSize:isMobile?13:12,color:"#9ca3af",fontWeight:500}}>{data.subjects.length} môn · {data.subjects.reduce((a,s)=>a+(s.lessons?.filter(l=>l.done).length||0),0)}/{data.subjects.reduce((a,s)=>a+(s.lessons?.length||0),0)} bài hoàn thành</p>}</div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               {/* Nút lịch thi dấu ! */}
-              <button onClick={()=>setShowLichThi(true)} title="Lịch thi" style={{position:"relative",width:isMobile?36:30,height:isMobile?36:30,borderRadius:"50%",background:"#fff",border:"2px solid #f59e0b",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,boxShadow:"0 1px 4px rgba(245,158,11,.25)"}}>
+              <button onClick={()=>setShowLichThi(true)} title={t("Lịch thi")} style={{position:"relative",width:isMobile?36:30,height:isMobile?36:30,borderRadius:"50%",background:"#fff",border:"2px solid #f59e0b",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,boxShadow:"0 1px 4px rgba(245,158,11,.25)"}}>
                 <span style={{fontSize:isMobile?16:14,fontWeight:900,color:"#f59e0b",lineHeight:1}}>!</span>
                 {data.subjects.some(s=>s.examDate&&daysLeft(s.examDate)>=0&&daysLeft(s.examDate)<=7)&&(
                   <span style={{position:"absolute",top:-3,right:-3,width:8,height:8,borderRadius:"50%",background:"#dc2626",border:"1.5px solid #fff"}} />
                 )}
               </button>
-              <button onClick={()=>setShowImportLichThi(true)} title="Import lịch thi" style={{display:"flex",alignItems:"center",gap:5,background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:8,color:"#c2410c",fontSize:isMobile?12:11,padding:isMobile?"8px 12px":"5px 10px",cursor:"pointer",fontWeight:700,minHeight:isMobile?40:"auto"}}>
+              <button onClick={()=>setShowImportLichThi(true)} title={t("Import lịch thi")} style={{display:"flex",alignItems:"center",gap:5,background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:8,color:"#c2410c",fontSize:isMobile?12:11,padding:isMobile?"8px 12px":"5px 10px",cursor:"pointer",fontWeight:700,minHeight:isMobile?40:"auto"}}>
                 <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Import thi
               </button>
@@ -4865,9 +4964,9 @@ function App() {
           )}
           {addingSubject?(
             <div style={{display:"flex",gap:8,marginTop:10}}>
-              <input autoFocus value={newSubjectName} onChange={e=>setNewSubjectName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addSubject();if(e.key==="Escape"){setAddingSubject(false);setNewSubjectName("");}}} placeholder="Tên môn học..." style={{flex:1,background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,color:"#111827",fontSize:isMobile?16:14,padding:isMobile?"13px 16px":"10px 14px",outline:"none",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}} />
-              <button onClick={addSubject} style={{background:theme.accent,border:"none",borderRadius:10,color:"#fff",fontSize:isMobile?15:13,padding:isMobile?"13px 20px":"10px 18px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Thêm</button>
-              <button onClick={()=>{setAddingSubject(false);setNewSubjectName("");}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:isMobile?15:13,cursor:"pointer",flexShrink:0}}>Hủy</button>
+              <input autoFocus value={newSubjectName} onChange={e=>setNewSubjectName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addSubject();if(e.key==="Escape"){setAddingSubject(false);setNewSubjectName("");}}} placeholder={t("Tên môn học...")} style={{flex:1,background:"#fff",border:"1px solid #e5e7eb",borderRadius:10,color:"#111827",fontSize:isMobile?16:14,padding:isMobile?"13px 16px":"10px 14px",outline:"none",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}} />
+              <button onClick={addSubject} style={{background:theme.accent,border:"none",borderRadius:10,color:"#fff",fontSize:isMobile?15:13,padding:isMobile?"13px 20px":"10px 18px",cursor:"pointer",fontWeight:700,flexShrink:0}}>{t("Thêm")}</button>
+              <button onClick={()=>{setAddingSubject(false);setNewSubjectName("");}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:isMobile?15:13,cursor:"pointer",flexShrink:0}}>{t("Hủy")}</button>
             </div>
           ):(
             <button onClick={()=>setAddingSubject(true)} style={{display:"flex",alignItems:"center",gap:8,width:"100%",background:"none",border:`1.5px dashed ${theme.dot}`,borderRadius:isMobile?14:12,color:"#9ca3af",fontSize:isMobile?15:13,padding:isMobile?"16px 18px":"14px 16px",cursor:"pointer",marginTop:6,fontWeight:500,minHeight:isMobile?56:"auto"}}>
@@ -4913,8 +5012,8 @@ function Root() {
     };
   }, []);
 
-  if (!authUid) return <LoginScreen />;
-  return <App />;
+  if (!authUid) return <LangProvider><LoginScreen /></LangProvider>;
+  return <LangProvider><App /></LangProvider>;
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(<ErrorBoundary><Root /></ErrorBoundary>);
