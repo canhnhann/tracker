@@ -115,7 +115,10 @@
     signInWithEmailAndPassword,
     signOut,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    updatePassword,
+    EmailAuthProvider,
+    reauthenticateWithCredential
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -143,6 +146,21 @@
   window._signUp = (email, password) => createUserWithEmailAndPassword(auth, email, password);
   window._signOut = () => signOut(auth);
   window._signInGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
+  window._changePassword = async (currentPassword, newPassword) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Chưa đăng nhập.");
+    // Google users don't have a password — skip reauth
+    const isGoogle = user.providerData.some(p => p.providerId === "google.com");
+    if (!isGoogle) {
+      const cred = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, cred);
+    }
+    await updatePassword(user, newPassword);
+  };
+  window._isGoogleUser = () => {
+    const user = auth.currentUser;
+    return user ? user.providerData.some(p => p.providerId === "google.com") : false;
+  };
 
   // Lắng nghe trạng thái đăng nhập
   onAuthStateChanged(auth, async (user) => {
@@ -286,6 +304,92 @@ function useFirebaseSync() {
   }, [fbReady]);
 
   return { fbReady, authUid, authEmail, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites };
+}
+
+
+/* ─── ChangePasswordModal ─── */
+function ChangePasswordModal({ onClose }) {
+  const isGoogle = window._isGoogleUser && window._isGoogleUser();
+  const [currentPass, setCurrentPass] = useState("");
+  const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const errMap = {
+    "auth/wrong-password": "Mật khẩu hiện tại không đúng.",
+    "auth/weak-password": "Mật khẩu mới phải ít nhất 6 ký tự.",
+    "auth/requires-recent-login": "Phiên đăng nhập quá cũ, vui lòng đăng xuất và đăng nhập lại.",
+  };
+
+  async function handleSubmit() {
+    setError("");
+    if (!newPass) { setError("Vui lòng nhập mật khẩu mới."); return; }
+    if (newPass !== confirmPass) { setError("Mật khẩu xác nhận không khớp."); return; }
+    if (!isGoogle && !currentPass) { setError("Vui lòng nhập mật khẩu hiện tại."); return; }
+    setLoading(true);
+    try {
+      await window._changePassword(currentPass, newPass);
+      setSuccess(true);
+    } catch(e) {
+      setError(errMap[e.code] || "Có lỗi xảy ra. Thử lại nhé.");
+    } finally { setLoading(false); }
+  }
+
+  const inputStyle = {
+    width:"100%", padding:"11px 14px", border:"1.5px solid #e5e7eb",
+    borderRadius:10, fontSize:14, outline:"none", background:"#fff",
+    color:"#111827", fontFamily:"inherit"
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.4)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div style={{background:"#fff",borderRadius:20,padding:"24px 20px",width:"100%",maxWidth:360,boxShadow:"0 8px 32px rgba(0,0,0,.15)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+          <h2 style={{fontSize:17,fontWeight:800,color:"#111827",margin:0}}>Đổi mật khẩu</h2>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#9ca3af",lineHeight:1}}>×</button>
+        </div>
+
+        {success ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:40,marginBottom:12}}>✅</div>
+            <p style={{fontWeight:700,color:"#15803d",fontSize:15}}>Đổi mật khẩu thành công!</p>
+            <button onClick={onClose} style={{marginTop:16,background:"#6366f1",border:"none",borderRadius:10,color:"#fff",padding:"11px 28px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Đóng</button>
+          </div>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {isGoogle && (
+              <div style={{background:"#fefce8",border:"1px solid #fde68a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#92400e"}}>
+                Tài khoản Google — không cần mật khẩu hiện tại.
+              </div>
+            )}
+            {!isGoogle && (
+              <input type="password" placeholder="Mật khẩu hiện tại" value={currentPass}
+                onChange={e=>setCurrentPass(e.target.value)} style={inputStyle} />
+            )}
+            <input type="password" placeholder="Mật khẩu mới" value={newPass}
+              onChange={e=>setNewPass(e.target.value)} style={inputStyle} />
+            <input type="password" placeholder="Xác nhận mật khẩu mới" value={confirmPass}
+              onChange={e=>setConfirmPass(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&handleSubmit()} style={inputStyle} />
+
+            {error && (
+              <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:9,padding:"9px 13px",fontSize:13,color:"#dc2626",fontWeight:500}}>
+                {error}
+              </div>
+            )}
+
+            <button onClick={handleSubmit} disabled={loading}
+              style={{marginTop:4,padding:"13px 0",background:"#6366f1",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:"inherit",opacity:loading?.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              {loading && <span style={{display:"inline-block",width:14,height:14,border:"2px solid rgba(255,255,255,.4)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} />}
+              Xác nhận
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ─── LoginScreen ─── */
@@ -4541,6 +4645,7 @@ function App() {
   const [showImportLichThi, setShowImportLichThi] = useState(false);
   const [activeTab, setActiveTab] = useState("homnay");
   const [showSyncId, setShowSyncId] = useState(false);
+  const [showChangePass, setShowChangePass] = useState(false);
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
@@ -4645,9 +4750,15 @@ function App() {
             </div>
             <p style={{fontSize:13,color:"#6b7280",marginTop:4}}>🔒 Đăng nhập bằng email — dữ liệu riêng tư, chỉ bạn mới truy cập được.</p>
             {authEmail && <p style={{fontSize:13,color:"#9ca3af",marginTop:4}}>📧 {authEmail}</p>}
-            <button onClick={()=>{if(window._signOut)window._signOut();}} style={{marginTop:10,background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:9,color:"#6b7280",fontSize:13,padding:"8px 16px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>
-              🚪 Đăng xuất
-            </button>
+            <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+              <button onClick={()=>setShowChangePass(true)} style={{background:"#f0f9ff",border:"1.5px solid #bae6fd",borderRadius:9,color:"#0369a1",fontSize:13,padding:"8px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>
+                🔑 Đổi mật khẩu
+              </button>
+              <button onClick={()=>{if(window._signOut)window._signOut();}} style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:9,color:"#6b7280",fontSize:13,padding:"8px 14px",cursor:"pointer",fontWeight:600,fontFamily:"inherit"}}>
+                🚪 Đăng xuất
+              </button>
+            </div>
+            {showChangePass && <ChangePasswordModal onClose={()=>setShowChangePass(false)} />}
           </div>
         )}
       </div>
