@@ -109,6 +109,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDVdPhYUoC3S3yorWTnu1gE_RZIFXoXK_4",
@@ -121,15 +122,47 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  // Expose ra window để React dùng
+  const auth = getAuth(app);
+
+  // Expose Firestore helpers — _fbDoc luôn dùng uid thật từ Auth
   window._db = db;
-  window._fbDoc = (col, uid) => doc(db, col, uid || localStorage.getItem("studytodo_uid") || "default");
+  window._fbDoc = (col, uid) => doc(db, col, uid || window._currentUid || "default");
   window._onSnapshot = onSnapshot;
   window._setDoc = setDoc;
-  window._fbReady = true;
 
-  // Dispatch event để báo React biết Firebase sẵn sàng
-  window.dispatchEvent(new Event("firebase-ready"));
+  // Đăng nhập ẩn danh, rồi mới báo React sẵn sàng
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      try { await signInAnonymously(auth); }
+      catch (e) { console.error("signInAnonymously failed:", e); }
+      return; // onAuthStateChanged sẽ fire lại với user != null
+    }
+
+    window._currentUid = user.uid;
+
+    // ── Migration một lần: copy dữ liệu từ syncId cũ sang Auth UID mới ──
+    const oldId = localStorage.getItem("studytodo_uid");
+    if (oldId && oldId !== user.uid) {
+      try {
+        const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const newDocRef = doc(db, "studytodo", user.uid);
+        const oldDocRef = doc(db, "studytodo", oldId);
+        const [newSnap, oldSnap] = await Promise.all([getDoc(newDocRef), getDoc(oldDocRef)]);
+        // Chỉ migrate nếu: document mới CHƯA có dữ liệu VÀ document cũ có dữ liệu
+        if (!newSnap.exists() && oldSnap.exists()) {
+          await setDoc(newDocRef, oldSnap.data());
+          console.log("Migration hoan tat: du lieu cu da chuyen sang Auth UID moi.");
+        }
+      } catch (e) {
+        console.warn("Migration failed (se thu lai lan sau):", e);
+      }
+    }
+    // Lưu Auth UID vào localStorage để lần sau nhận ra đã migrate xong
+    localStorage.setItem("studytodo_uid", user.uid);
+
+    window._fbReady = true;
+    window.dispatchEvent(new CustomEvent("firebase-ready", { detail: { uid: user.uid } }));
+  });
 </script>
 <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
@@ -179,6 +212,7 @@ function useFirebaseSync() {
   const [syncing, setSyncing] = useState(false);
   const [syncOk, setSyncOk] = useState(false);
   const [fbReady, setFbReady] = useState(() => !!window._fbReady);
+  const [authUid, setAuthUid] = useState(() => window._currentUid || null);
   const debounceTimers = useRef({});
   const syncOkTimer = useRef(null);
   // blockWrites: đếm số nguồn đang yêu cầu khóa ghi (>0 = đang xử lý remote)
@@ -187,8 +221,14 @@ function useFirebaseSync() {
   const pendingWrites = useRef(0);
 
   useEffect(() => {
-    if (window._fbReady) return;
-    const handler = () => setFbReady(true);
+    if (window._fbReady) {
+      if (window._currentUid) setAuthUid(window._currentUid);
+      return;
+    }
+    const handler = (e) => {
+      setFbReady(true);
+      if (e.detail?.uid) setAuthUid(e.detail.uid);
+    };
     window.addEventListener("firebase-ready", handler);
     return () => window.removeEventListener("firebase-ready", handler);
   }, []);
@@ -212,7 +252,7 @@ function useFirebaseSync() {
     }, debounceMs);
   }, [fbReady]);
 
-  return { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites };
+  return { fbReady, authUid, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites };
 }
 
 /* ─── Responsive ─── */
@@ -4339,16 +4379,13 @@ function App() {
   const [showLichThi, setShowLichThi] = useState(false);
   const [showImportLichThi, setShowImportLichThi] = useState(false);
   const [activeTab, setActiveTab] = useState("homnay");
-  const [syncId, setSyncId] = useState(() => {
-    let id = localStorage.getItem("studytodo_uid");
-    if (!id) { id = uid(); localStorage.setItem("studytodo_uid", id); }
-    return id;
-  });
   const [showSyncId, setShowSyncId] = useState(false);
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
   const theme = THEMES[themeKey]||THEMES.indigo;
-  const { fbReady, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites } = useFirebaseSync();
+  const { fbReady, authUid, syncing, syncOk, pushToFirebase, isRemoteUpdate, blockWrites, pendingWrites } = useFirebaseSync();
+  // syncId luôn là Firebase Auth UID — đảm bảo dữ liệu thuộc về đúng người dùng
+  const syncId = authUid;
   const isFirstLoad = useRef(true);
 
   // Lắng nghe realtime từ Firebase
@@ -4356,9 +4393,9 @@ function App() {
   useEffect(() => { if (window._appReady) window._appReady(); }, []);
 
   useEffect(() => {
-    if (!fbReady || !window._onSnapshot || !window._fbDoc) return;
+    if (!fbReady || !authUid || !window._onSnapshot || !window._fbDoc) return;
     try {
-    const unsub = window._onSnapshot(window._fbDoc("studytodo"), (snap) => {
+    const unsub = window._onSnapshot(window._fbDoc("studytodo", authUid), (snap) => {
       if (!snap.exists()) {
         isFirstLoad.current = false;
         return;
@@ -4383,7 +4420,7 @@ function App() {
     });
     return () => unsub();
     } catch(e) { console.error("Snapshot error:", e); }
-  }, [fbReady]);
+  }, [fbReady, authUid]);
 
   // Ghi lên Firebase + localStorage khi data thay đổi (bỏ qua lần mount đầu tiên và khi đang nhận remote)
   const isMounted = useRef(false);
@@ -4401,10 +4438,8 @@ function App() {
 
   // Đổi sang thiết bị khác bằng mã ID
   const switchToId = () => {
-    const id = importId.trim();
-    if (!id) return;
-    localStorage.setItem("studytodo_uid", id);
-    window.location.reload();
+    // Tính năng "xem thiết bị khác" vẫn dùng WatchDeviceSection
+    // Không còn đổi UID của chính mình — UID giờ do Firebase Auth quản lý
   };
 
   const updateSubject = (id,u) => setData(d=>({...d,subjects:d.subjects.map(s=>s.id===id?u:s)}));
@@ -4433,26 +4468,22 @@ function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:isMobile?10:8}}>
             {/* Sync status */}
-            <button onClick={()=>setShowSyncId(v=>!v)} title="Đồng bộ thiết bị" style={{background:syncOk?"#f0fdf4":fbReady?"#fffbeb":"#f9fafb",border:`1px solid ${syncOk?"#bbf7d0":fbReady?"#fde68a":"#e5e7eb"}`,borderRadius:8,padding:isMobile?"7px 10px":"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:isMobile?12:11,color:syncOk?"#15803d":fbReady?"#92400e":"#9ca3af",fontWeight:700}}>
+            <button onClick={()=>setShowSyncId(v=>!v)} title="Thông tin đồng bộ" style={{background:syncOk?"#f0fdf4":fbReady?"#fffbeb":"#f9fafb",border:`1px solid ${syncOk?"#bbf7d0":fbReady?"#fde68a":"#e5e7eb"}`,borderRadius:8,padding:isMobile?"7px 10px":"5px 8px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,fontSize:isMobile?12:11,color:syncOk?"#15803d":fbReady?"#92400e":"#9ca3af",fontWeight:700}}>
               {syncing ? <span style={{display:"inline-block",width:10,height:10,border:"2px solid currentColor",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}} /> : <span>{syncOk?"☁️✓":fbReady?"☁️":"○"}</span>}
               {!isMobile && (syncOk?"Đã lưu":fbReady?"Đang kết nối...":"Offline")}
             </button>
           </div>
         </div>
-        {/* Sync ID panel */}
+        {/* Sync info panel */}
         {showSyncId && (
           <div style={{maxWidth:isMobile?"100%":720,margin:"0 auto",padding:isMobile?"0 16px 14px":"0 28px 14px",borderTop:"1px solid #f3f4f6"}}>
-            <div style={{fontSize:13,color:"#9ca3af",fontWeight:600,marginBottom:6,marginTop:10}}>MÃ THIẾT BỊ CỦA BẠN</div>
+            <div style={{fontSize:13,color:"#9ca3af",fontWeight:600,marginBottom:6,marginTop:10}}>ID TÀI KHOẢN CỦA BẠN</div>
             <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}>
-              <code style={{flex:1,background:"#f3f4f6",borderRadius:8,padding:"8px 12px",fontSize:15,color:"#374151",letterSpacing:".05em",wordBreak:"break-all"}}>{syncId}</code>
-              <button onClick={()=>{navigator.clipboard.writeText(syncId);}} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:14,padding:"8px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Sao chép</button>
+              <code style={{flex:1,background:"#f3f4f6",borderRadius:8,padding:"8px 12px",fontSize:13,color:"#374151",letterSpacing:".03em",wordBreak:"break-all"}}>{syncId || "Đang đăng nhập..."}</code>
+              {syncId && <button onClick={()=>{navigator.clipboard.writeText(syncId);}} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:14,padding:"8px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Sao chép</button>}
             </div>
-            <div style={{fontSize:13,color:"#9ca3af",marginBottom:6,fontWeight:600}}>ĐỒNG BỘ THIẾT BỊ KHÁC — nhập mã từ thiết bị kia</div>
-            <div style={{display:"flex",gap:8}}>
-              <input value={importId} onChange={e=>setImportId(e.target.value)} placeholder="Dán mã thiết bị vào đây..." style={{flex:1,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,fontSize:15,padding:"8px 12px",outline:"none",color:"#374151"}} />
-              <button onClick={switchToId} style={{background:theme.accent,border:"none",borderRadius:8,color:"#fff",fontSize:14,padding:"8px 14px",cursor:"pointer",fontWeight:700,flexShrink:0}}>Đồng bộ</button>
-            </div>
-            <p style={{fontSize:13,color:"#d1d5db",marginTop:8}}>💡 Sao chép mã thiết bị này → dán vào thiết bị khác để dùng chung dữ liệu</p>
+            <p style={{fontSize:13,color:"#6b7280",marginTop:4}}>🔒 Dữ liệu được bảo vệ bằng Firebase Anonymous Auth — mỗi thiết bị có ID riêng, không ai khác đọc được.</p>
+            <p style={{fontSize:13,color:"#d1d5db",marginTop:6}}>💡 Để xem lịch thiết bị khác, dùng tính năng <strong>Theo dõi thiết bị</strong> trong tab Hôm nay.</p>
           </div>
         )}
       </div>
