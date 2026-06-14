@@ -21,6 +21,10 @@
   @keyframes spin{to{transform:rotate(360deg);}}
   @keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes slideInLeft{from{transform:translateX(32px);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes slideInRight{from{transform:translateX(-32px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .tab-slide-left{animation:slideInLeft .22s cubic-bezier(.4,0,.2,1) both;}
+  .tab-slide-right{animation:slideInRight .22s cubic-bezier(.4,0,.2,1) both;}
   #app{min-height:100vh;}
 
   /* ── Splash screen ── */
@@ -11221,6 +11225,9 @@ function App() {
   const [showLichThi, setShowLichThi] = useState(false);
   const [showImportLichThi, setShowImportLichThi] = useState(false);
   const [activeTab, setActiveTab] = useState("homnay");
+  const [slideDir, setSlideDir] = useState("left");
+  const prevTabRef = React.useRef("homnay");
+  const [animKey, setAnimKey] = useState(0);
   const [showSyncId, setShowSyncId] = useState(false);
   const [showChangePass, setShowChangePass] = useState(false);
   const [importId, setImportId] = useState("");
@@ -11581,7 +11588,13 @@ function App() {
     }
   }, "\uD83D\uDEAA \u0110\u0103ng xu\u1EA5t")), showChangePass && /*#__PURE__*/React.createElement(ChangePasswordModal, {
     onClose: () => setShowChangePass(false)
-  }))), activeTab === "monhoc" ? /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: { overflow: "hidden", flex: 1 }
+  }, /*#__PURE__*/React.createElement("div", {
+    key: animKey,
+    className: slideDir === "left" ? "tab-slide-left" : "tab-slide-right",
+    style: { minHeight: "calc(100vh - 62px)" }
+  }, activeTab === "monhoc" ? /*#__PURE__*/React.createElement("div", {
     style: {
       maxWidth: isMobile ? "100%" : 720,
       margin: "0 auto",
@@ -11865,9 +11878,18 @@ function App() {
     tab: currentTabInfo,
     theme: theme,
     isMobile: isMobile
-  }), /*#__PURE__*/React.createElement(NavBar, {
+  }))), /*#__PURE__*/React.createElement(NavBar, {
     activeTab: activeTab,
-    onTabChange: setActiveTab,
+    onTabChange: (newTab) => {
+      const TAB_ORDER = ["lichhoc","homnay","monhoc","soanbai","todo","taichinh"];
+      const prevIdx = TAB_ORDER.indexOf(prevTabRef.current);
+      const nextIdx = TAB_ORDER.indexOf(newTab);
+      setSlideDir(nextIdx >= prevIdx ? "left" : "right");
+      prevTabRef.current = newTab;
+      setAnimKey(k => k + 1);
+      setActiveTab(newTab);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    },
     theme: theme,
     isMobile: isMobile
   }), /*#__PURE__*/React.createElement("div", {
