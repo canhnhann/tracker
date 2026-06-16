@@ -3989,6 +3989,11 @@ function SubjectCard({
       fontSize: isMobile ? 15 : 12,
       outline: "none",
       cursor: "pointer",
+      flexShrink: 0,
+      flexGrow: 0,
+      minWidth: isMobile ? 132 : 100,
+      WebkitAppearance: "none",
+      appearance: "none",
       minHeight: isMobile ? 40 : "auto"
     }
   }), subject.examTime && /*#__PURE__*/React.createElement("span", {
