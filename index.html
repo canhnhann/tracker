@@ -6872,7 +6872,41 @@ function LichHocMonthView({
     });
   }
   const DAY_HEADERS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-  const selectedSessions = selectedDay ? sessionMap[selectedDay] || [] : [];
+  // Hàm lấy thời gian (phút từ 0h) để sắp xếp từ sáng đến tối
+  const getSessionSortTime = s => {
+    if (s.type === "hoc") {
+      const rule = s.rule || {};
+      if (rule.startTime) {
+        const [h, m] = rule.startTime.split(":").map(Number);
+        return h * 60 + (m || 0);
+      }
+      if (rule.tietFrom) {
+        const tiet = parseInt(rule.tietFrom);
+        // Tiết 1-5: sáng (~7h), tiết 6-10: chiều (~13h), tiết 11+: tối (~17h)
+        if (tiet <= 5) return 7 * 60 + (tiet - 1) * 50;
+        if (tiet <= 10) return 13 * 60 + (tiet - 6) * 50;
+        return 17 * 60 + (tiet - 11) * 50;
+      }
+      const bv = s.buoi?.value || "sang";
+      return bv === "sang" ? 7 * 60 : bv === "chieu" ? 13 * 60 + 30 : 17 * 60 + 30;
+    }
+    if (s.type === "thi") {
+      if (s.examTime) {
+        const [h, m] = s.examTime.split(":").map(Number);
+        return h * 60 + (m || 0);
+      }
+      return 7 * 60;
+    }
+    if (s.type === "day") {
+      if (s.row?.startTime) {
+        const [h, m] = s.row.startTime.split(":").map(Number);
+        return h * 60 + (m || 0);
+      }
+      return 7 * 60;
+    }
+    return 0;
+  };
+  const selectedSessions = selectedDay ? [...(sessionMap[selectedDay] || [])].sort((a, b) => getSessionSortTime(a) - getSessionSortTime(b)) : [];
   const selDate = selectedDay ? new Date(selectedDay + "T00:00:00") : null;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
