@@ -1163,6 +1163,7 @@ const IC = {
   home:      LI([['path',{d:'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',fill:'currentColor',stroke:'none'}]], 18),
   sun:       LI([['path',{d:'M12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7zm0-5a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v1a1 1 0 0 1-2 0v-1a1 1 0 0 1 1-1zM4.22 5.64a1 1 0 0 1 1.42-1.42l.7.71a1 1 0 0 1-1.41 1.41l-.71-.7zm13.02 12.02a1 1 0 0 1 1.42-1.42l.7.71a1 1 0 0 1-1.41 1.41l-.71-.7zM3 12a1 1 0 0 1-1-1 1 1 0 0 1 1-1h1a1 1 0 0 1 0 2H3zm17 0a1 1 0 0 1 0-2h1a1 1 0 0 1 0 2h-1zM5.64 17.66a1 1 0 0 1-1.42-1.42l.71-.7a1 1 0 1 1 1.41 1.41l-.7.71zm12.02-13.02a1 1 0 0 1-1.42-1.42l.71-.7a1 1 0 1 1 1.41 1.41l-.7.71z',fill:'currentColor',stroke:'none'}]], 18),
   moon:      LI([['path',{d:'M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z',fill:'currentColor',stroke:'none'}]], 16),
+  settings:  LI([['path',{d:'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.5.5 0 0 0-.49-.41h-3.84a.5.5 0 0 0-.49.41l-.36 2.54c-.59.24-1.13.56-1.62.94l-2.39-.96a.5.5 0 0 0-.59.22L2.7 8.87a.5.5 0 0 0 .12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54a.5.5 0 0 0 .49.41h3.84a.5.5 0 0 0 .49-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96a.5.5 0 0 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.03-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z',fill:'currentColor',stroke:'none'}]], 18),
 };
 const NAV_TABS = [{
   id: "homnay",
@@ -10593,7 +10594,7 @@ function App() {
   const [slideDir, setSlideDir] = useState("left");
   const prevTabRef = React.useRef("homnay");
   const [animKey, setAnimKey] = useState(0);
-  const [showSyncId, setShowSyncId] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showChangePass, setShowChangePass] = useState(false);
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
@@ -10824,18 +10825,47 @@ function App() {
       gap: isMobile ? 10 : 8
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setShowSyncId(v => !v),
-    title: "Th\xF4ng tin \u0111\u1ED3ng b\u1ED9",
+    onClick: () => setShowSettings(v => !v),
+    title: "Cài đặt",
     style: {
-      background: syncOk ? "#f0fdf4" : fbReady ? "#fffbeb" : "#f9fafb",
-      border: `1px solid ${syncOk ? "#bbf7d0" : fbReady ? "#fde68a" : "#e5e7eb"}`,
+      background: "#f9fafb",
+      border: "1px solid #e5e7eb",
       borderRadius: 8,
-      padding: isMobile ? "7px 10px" : "5px 8px",
+      width: isMobile ? 34 : 30,
+      height: isMobile ? 34 : 30,
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
-      gap: 5,
-      fontSize: isMobile ? 12 : 11,
+      justifyContent: "center",
+      color: "#6b7280",
+      flexShrink: 0
+    }
+  }, IC.settings))), showSettings && /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: isMobile ? "100%" : 720,
+      margin: "0 auto",
+      padding: isMobile ? "0 16px 14px" : "0 28px 14px",
+      borderTop: "1px solid #f3f4f6"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: "#9ca3af",
+      fontWeight: 600,
+      marginBottom: 6,
+      marginTop: 10
+    }
+  }, "TR\u1EA0NG TH\xC1I \u0110\u1ED6NG B\u1ED8"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      background: syncOk ? "#f0fdf4" : fbReady ? "#fffbeb" : "#f9fafb",
+      border: `1px solid ${syncOk ? "#bbf7d0" : fbReady ? "#fde68a" : "#e5e7eb"}`,
+      borderRadius: 8,
+      padding: "6px 10px",
+      marginBottom: 14,
+      fontSize: 13,
       color: syncOk ? "#15803d" : fbReady ? "#92400e" : "#9ca3af",
       fontWeight: 700
     }
@@ -10849,14 +10879,7 @@ function App() {
       borderRadius: "50%",
       animation: "spin 0.7s linear infinite"
     }
-  }) : /*#__PURE__*/React.createElement("span", null, syncOk ? "☁️✓" : fbReady ? "☁️" : "○"), !isMobile && (syncOk ? "Đã lưu" : fbReady ? "Đang kết nối..." : "Offline")))), showSyncId && /*#__PURE__*/React.createElement("div", {
-    style: {
-      maxWidth: isMobile ? "100%" : 720,
-      margin: "0 auto",
-      padding: isMobile ? "0 16px 14px" : "0 28px 14px",
-      borderTop: "1px solid #f3f4f6"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
+  }) : /*#__PURE__*/React.createElement("span", null, syncOk ? "☁️✓" : fbReady ? "☁️" : "○"), syncOk ? "Đã lưu" : fbReady ? "Đang kết nối..." : "Offline"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
       color: "#9ca3af",
