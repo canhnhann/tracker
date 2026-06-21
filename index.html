@@ -6823,6 +6823,7 @@ function LichHocMonthView({
   const [selectedDay, setSelectedDay] = useState(null);
   const [activeFilter, setActiveFilter] = useState(null); // null | "lt" | "th" | "thi" | "day" | "hen"
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [statsMenuOpen, setStatsMenuOpen] = useState(false);
   // ── Thêm lịch trình cụ thể ngay từ ô lịch ──
   const [addingSpecOnDay, setAddingSpecOnDay] = useState(false);
   const [specKind, setSpecKind] = useState("hoc"); // "hoc" | "day" | "hen"
@@ -7232,6 +7233,23 @@ function LichHocMonthView({
   }];
   const activeFilterOpt = filterOptions.find(f => f.key === activeFilter);
   const filterFunnelIcon = LI([['polygon',{points:'22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'}]], 15);
+  // ── Thống kê: tổng số buổi dạy của từng lớp trong tháng đang xem ──
+  const teachingStatsList = (() => {
+    const map = {};
+    cells.forEach(c => {
+      if (!c) return;
+      (c.sessions || []).forEach(s => {
+        if (s.type !== "day") return;
+        const name = s.subjName || "Kh\u00F4ng t\u00EAn";
+        map[name] = (map[name] || 0) + 1;
+      });
+    });
+    return Object.keys(map).map(name => ({
+      name,
+      count: map[name]
+    })).sort((a, b) => b.count - a.count);
+  })();
+  const teachingStatsTotal = teachingStatsList.reduce((sum, t) => sum + t.count, 0);
   const dInp = {
     background: "#fff",
     border: "1px solid #e5e7eb",
@@ -7799,6 +7817,90 @@ function LichHocMonthView({
       style: { fontSize: 12, fontWeight: 800 }
     }, "\u2713"));
   })))), /*#__PURE__*/React.createElement("div", {
+    style: { position: "relative" }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStatsMenuOpen(v => !v),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 13,
+      fontWeight: 700,
+      color: statsMenuOpen ? "#fff" : "#374151",
+      background: statsMenuOpen ? "#a855f7" : "#fff",
+      borderRadius: 20,
+      padding: "6px 14px",
+      border: `1.5px solid ${statsMenuOpen ? "#a855f7" : "#e5e7eb"}`,
+      cursor: "pointer",
+      transition: "all .15s"
+    }
+  }, IC.chart, "Th\u1ED1ng k\u00EA"), statsMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setStatsMenuOpen(false),
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 40
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: "calc(100% + 6px)",
+      left: "50%",
+      transform: "translateX(-50%)",
+      transformOrigin: "top center",
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
+      boxShadow: "0 10px 28px rgba(0,0,0,.14)",
+      padding: 12,
+      zIndex: 50,
+      minWidth: 230,
+      maxHeight: 280,
+      overflowY: "auto",
+      animation: "filterDropIn .18s cubic-bezier(.4,0,.2,1) both"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: "#9ca3af",
+      letterSpacing: ".05em",
+      textTransform: "uppercase",
+      marginBottom: 8
+    }
+  }, "Bu\u1ED5i d\u1EA1y th\u00E1ng ", month + 1, "/", year), teachingStatsList.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 13, color: "#9ca3af", padding: "6px 2px" }
+  }, "Ch\u01B0a c\u00F3 bu\u1ED5i d\u1EA1y n\u00E0o trong th\u00E1ng n\u00E0y.") : /*#__PURE__*/React.createElement(React.Fragment, null, teachingStatsList.map(t => /*#__PURE__*/React.createElement("div", {
+    key: t.name,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      padding: "7px 2px",
+      borderBottom: "1px solid #f3f4f6",
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { color: "#374151", fontWeight: 600 }
+  }, t.name), /*#__PURE__*/React.createElement("span", {
+    style: { color: "#a855f7", fontWeight: 800, whiteSpace: "nowrap" }
+  }, t.count, " bu\u1ED5i"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+      padding: "9px 2px 2px",
+      marginTop: 4,
+      borderTop: "1.5px solid #e5e7eb",
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { color: "#111827", fontWeight: 700 }
+  }, "T\u1ED5ng c\u1ED9ng"), /*#__PURE__*/React.createElement("span", {
+    style: { color: "#111827", fontWeight: 800 }
+  }, teachingStatsTotal, " bu\u1ED5i")))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
