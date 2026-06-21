@@ -6805,7 +6805,8 @@ function LichHocMonthView({
   isMobile,
   examSubjects,
   soanBaiData,
-  onLichHocChange
+  onLichHocChange,
+  onSoanBaiChange
 }) {
   const {
     accent,
@@ -6816,12 +6817,15 @@ function LichHocMonthView({
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
-  const [activeFilter, setActiveFilter] = useState(null); // null | "lt" | "th" | "thi" | "day"
+  const [activeFilter, setActiveFilter] = useState(null); // null | "lt" | "th" | "thi" | "day" | "hen"
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   // ── Thêm lịch trình cụ thể ngay từ ô lịch ──
   const [addingSpecOnDay, setAddingSpecOnDay] = useState(false);
+  const [specKind, setSpecKind] = useState("hoc"); // "hoc" | "day" | "hen"
   const blankSpecForm = {
     subjectId: "",
     newSubjectName: "",
+    title: "",
     buoi: "sang",
     loai: "lt",
     tietFrom: "",
@@ -6832,6 +6836,11 @@ function LichHocMonthView({
     note: ""
   };
   const [daySpecForm, setDaySpecForm] = useState(blankSpecForm);
+  const closeAddSpecForm = () => {
+    setAddingSpecOnDay(false);
+    setSpecKind("hoc");
+    setDaySpecForm(blankSpecForm);
+  };
   const updDaySpec = (k, v) => setDaySpecForm(f => ({
     ...f,
     [k]: v
@@ -6859,11 +6868,68 @@ function LichHocMonthView({
     }));
   };
   const addSpecificToSelectedDay = () => {
-    if (!selectedDay || !onLichHocChange) return;
+    if (!selectedDay) return;
+    if (specKind === "hen") {
+      if (!onLichHocChange) return;
+      const title = daySpecForm.title.trim();
+      if (!title) return;
+      const newAppt = {
+        id: uid(),
+        date: selectedDay,
+        title,
+        startTime: daySpecForm.startTime,
+        endTime: daySpecForm.endTime,
+        room: daySpecForm.room,
+        note: daySpecForm.note
+      };
+      onLichHocChange(d => ({
+        ...d,
+        appointments: [...(d.appointments || []), newAppt]
+      }));
+      closeAddSpecForm();
+      return;
+    }
     const isNew = daySpecForm.subjectId === "__new__";
     const newSubjName = daySpecForm.newSubjectName.trim();
     if (isNew && !newSubjName) return;
     if (!isNew && !daySpecForm.subjectId) return;
+    if (specKind === "day") {
+      if (!onSoanBaiChange) return;
+      const newSpec = {
+        id: uid(),
+        date: selectedDay,
+        startTime: daySpecForm.startTime,
+        endTime: daySpecForm.endTime,
+        room: daySpecForm.room,
+        note: daySpecForm.note
+      };
+      onSoanBaiChange(d => {
+        const subjects = d.subjects || [];
+        if (isNew) {
+          return {
+            ...d,
+            subjects: [...subjects, {
+              id: uid(),
+              name: newSubjName,
+              scheduleRows: [],
+              salary: {},
+              specifics: [newSpec]
+            }]
+          };
+        }
+        return {
+          ...d,
+          subjects: subjects.map(s => s.id === daySpecForm.subjectId ? {
+            ...s,
+            specifics: [...(s.specifics || []), newSpec]
+          } : s)
+        };
+      });
+      closeAddSpecForm();
+      return;
+    }
+    // specKind === "hoc"
+    if (!onLichHocChange) return;
     const newSpec = {
       id: uid(),
       date: selectedDay,
@@ -6897,14 +6963,14 @@ function LichHocMonthView({
         } : s)
       };
     });
-    setDaySpecForm(blankSpecForm);
-    setAddingSpecOnDay(false);
+    closeAddSpecForm();
   };
 
   const toggleFilter = f => {
     setActiveFilter(v => v === f ? null : f);
     setSelectedDay(null);
-    setAddingSpecOnDay(false);
+    closeAddSpecForm();
+    setFilterMenuOpen(false);
   };
   const prevM = () => {
     if (month === 0) {
@@ -6999,6 +7065,29 @@ function LichHocMonthView({
         });
       }
     });
+    // Lịch dạy cụ thể (ngày riêng lẻ, thêm từ ô lịch)
+    (subj.specifics || []).forEach(sp => {
+      if (!sp.date) return;
+      const d = new Date(sp.date + "T00:00:00");
+      if (d.getFullYear() !== year || d.getMonth() !== month) return;
+      addToMap(sp.date, {
+        type: "day",
+        subjName: subj.name,
+        row: sp,
+        isSpecific: true
+      });
+    });
+  });
+
+  // Lịch hẹn (thêm từ ô lịch)
+  (lichHocData.appointments || []).forEach(ap => {
+    if (!ap.date) return;
+    const d = new Date(ap.date + "T00:00:00");
+    if (d.getFullYear() !== year || d.getMonth() !== month) return;
+    addToMap(ap.date, {
+      type: "hen",
+      ap
+    });
   });
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -7057,11 +7146,88 @@ function LichHocMonthView({
       }
       return 7 * 60;
     }
+    if (s.type === "hen") {
+      if (s.ap?.startTime) {
+        const [h, m] = s.ap.startTime.split(":").map(Number);
+        return h * 60 + (m || 0);
+      }
+      return 7 * 60;
+    }
     return 0;
+  };
+  const deleteSessionItem = s => {
+    if (s.type === "hen") {
+      if (!onLichHocChange) return;
+      onLichHocChange(d => ({
+        ...d,
+        appointments: (d.appointments || []).filter(a => a.id !== s.ap.id)
+      }));
+      return;
+    }
+    if (s.type === "day" && s.isSpecific) {
+      if (!onSoanBaiChange) return;
+      onSoanBaiChange(d => ({
+        ...d,
+        subjects: (d.subjects || []).map(subj => ({
+          ...subj,
+          specifics: (subj.specifics || []).filter(sp => sp.id !== s.row.id)
+        }))
+      }));
+      return;
+    }
+    if (s.type === "hoc" && s.isSpecific) {
+      if (!onLichHocChange) return;
+      onLichHocChange(d => ({
+        ...d,
+        subjects: (d.subjects || []).map(subj => ({
+          ...subj,
+          specifics: (subj.specifics || []).filter(sp => sp.id !== s.rule.id)
+        }))
+      }));
+      return;
+    }
   };
   const selectedSessions = selectedDay ? [...(sessionMap[selectedDay] || [])].sort((a, b) => getSessionSortTime(a) - getSessionSortTime(b)) : [];
   const selDate = selectedDay ? new Date(selectedDay + "T00:00:00") : null;
   const lichHocSubjects = lichHocData.subjects || [];
+  const filterOptions = [{
+    key: "lt",
+    label: "Lý thuyết",
+    color: "#5c6bc0",
+    bg: "#e8eaf6",
+    border: "#c5cae9",
+    icon: LI([['path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}],['path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}]], 15)
+  }, {
+    key: "th",
+    label: "Thực hành",
+    color: "#0891b2",
+    bg: "#e0f2fe",
+    border: "#bae6fd",
+    icon: LI([['path',{d:'M9 3h6v7l3 9H6l3-9V3z'}],['line',{x1:'6',y1:'3',x2:'18',y2:'3'}]], 15)
+  }, {
+    key: "thi",
+    label: "Lịch thi",
+    color: "#dc2626",
+    bg: "#fef2f2",
+    border: "#fecaca",
+    icon: LI([['path',{d:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'}],['path',{d:'M13.73 21a2 2 0 0 1-3.46 0'}]], 15)
+  }, {
+    key: "day",
+    label: "Lịch dạy",
+    color: "#a855f7",
+    bg: "#faf5ff",
+    border: "#e9d5ff",
+    icon: LI([['path',{d:'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'}],['circle',{cx:'12',cy:'10',r:'3'}]], 15)
+  }, {
+    key: "hen",
+    label: "Lịch hẹn",
+    color: "#0d9488",
+    bg: "#f0fdfa",
+    border: "#99f6e4",
+    icon: LI([['rect',{x:'3',y:'4',width:'18',height:'18',rx:'2'}],['line',{x1:'16',y1:'2',x2:'16',y2:'6'}],['line',{x1:'8',y1:'2',x2:'8',y2:'6'}],['line',{x1:'3',y1:'10',x2:'21',y2:'10'}]], 15)
+  }];
+  const activeFilterOpt = filterOptions.find(f => f.key === activeFilter);
+  const filterFunnelIcon = LI([['polygon',{points:'22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'}]], 15);
   const dInp = {
     background: "#fff",
     border: "1px solid #e5e7eb",
@@ -7083,67 +7249,75 @@ function LichHocMonthView({
     marginBottom: 4,
     display: "block"
   };
-  const addSpecBlock = !onLichHocChange ? null : !addingSpecOnDay ? /*#__PURE__*/React.createElement("button", {
-    onClick: () => setAddingSpecOnDay(true),
+  const teachingSubjects = (soanBaiData || {}).subjects || [];
+  const kindOptions = [
+    { key: "hoc", label: "L\u1EDBp h\u1ECDc", color: "#6366f1" },
+    { key: "day", label: "L\u1EDBp d\u1EA1y", color: "#a855f7" },
+    { key: "hen", label: "L\u1ECBch h\u1EB9n", color: "#0d9488" }
+  ];
+  const kindSelector = /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 6, marginBottom: 10 }
+  }, kindOptions.map(k => /*#__PURE__*/React.createElement("button", {
+    key: k.key,
+    onClick: () => {
+      setSpecKind(k.key);
+      setDaySpecForm(blankSpecForm);
+    },
     style: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      width: "100%",
-      background: accentLight,
-      border: `1.5px dashed ${accent}55`,
-      borderRadius: 9,
-      color: accentText,
-      fontSize: isMobile ? 14 : 13,
+      flex: 1,
+      background: specKind === k.key ? k.color : "#fff",
+      color: specKind === k.key ? "#fff" : "#6b7280",
+      border: `1.5px solid ${specKind === k.key ? k.color : "#e5e7eb"}`,
+      borderRadius: 8,
+      padding: isMobile ? "8px 6px" : "6px 8px",
+      fontSize: isMobile ? 13 : 12,
       fontWeight: 700,
-      padding: isMobile ? "10px 14px" : "8px 14px",
-      cursor: "pointer",
-      marginBottom: 10
+      cursor: "pointer"
     }
-  }, IC.plus, " Th\xEAm l\u1ECBch tr\xECnh c\u1EE5 th\u1EC3") : /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: "#f9fafb",
-      border: "1px solid #e5e7eb",
-      borderRadius: 12,
-      padding: isMobile ? "12px" : "10px 14px",
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 8
-    }
+  }, k.label)));
+
+  const subjectOptionsSource = specKind === "day" ? teachingSubjects : lichHocSubjects;
+  const subjectField = specKind === "hen" ? null : /*#__PURE__*/React.createElement("div", {
+    style: { marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("span", {
     style: dLbl
-  }, "M\xF4n h\u1ECDc / l\u1ECBch tr\xECnh"), /*#__PURE__*/React.createElement("select", {
+  }, specKind === "day" ? "L\u1EDBp d\u1EA1y" : "M\xF4n h\u1ECDc / l\u1ECBch tr\xECnh"), /*#__PURE__*/React.createElement("select", {
     value: daySpecForm.subjectId,
     onChange: e => updDaySpec("subjectId", e.target.value),
     style: dInp
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "-- Ch\u1ECDn m\xF4n --"), lichHocSubjects.map(s => /*#__PURE__*/React.createElement("option", {
+  }, "-- Ch\u1ECDn --"), subjectOptionsSource.map(s => /*#__PURE__*/React.createElement("option", {
     key: s.id,
     value: s.id
   }, s.name)), /*#__PURE__*/React.createElement("option", {
     value: "__new__"
-  }, "+ M\xF4n / l\u1ECBch tr\xECnh m\u1EDBi..."))), daySpecForm.subjectId === "__new__" && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 8
-    }
+  }, specKind === "day" ? "+ L\u1EDBp d\u1EA1y m\u1EDBi..." : "+ M\xF4n / l\u1ECBch tr\xECnh m\u1EDBi...")));
+
+  const newSubjectField = specKind !== "hen" && daySpecForm.subjectId === "__new__" ? /*#__PURE__*/React.createElement("div", {
+    style: { marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("span", {
     style: dLbl
-  }, "T\xEAn m\xF4n / l\u1ECBch tr\xECnh m\u1EDBi"), /*#__PURE__*/React.createElement("input", {
+  }, specKind === "day" ? "T\xEAn l\u1EDBp d\u1EA1y m\u1EDBi" : "T\xEAn m\xF4n / l\u1ECBch tr\xECnh m\u1EDBi"), /*#__PURE__*/React.createElement("input", {
     value: daySpecForm.newSubjectName,
     onChange: e => updDaySpec("newSubjectName", e.target.value),
     placeholder: "VD: H\u1ECDp khoa, D\u1EA1y b\xF9...",
     style: dInp
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 8,
-      marginBottom: 8
-    }
+  })) : null;
+
+  const titleField = specKind !== "hen" ? null : /*#__PURE__*/React.createElement("div", {
+    style: { marginBottom: 8 }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: dLbl
+  }, "Ti\xEAu \u0111\u1EC1"), /*#__PURE__*/React.createElement("input", {
+    value: daySpecForm.title,
+    onChange: e => updDaySpec("title", e.target.value),
+    placeholder: "VD: H\u1ECDp ph\u1EE5 huynh, H\u1EB9n g\u1EB7p...",
+    style: dInp
+  }));
+
+  const buoiLoaiField = specKind !== "hoc" ? null : /*#__PURE__*/React.createElement("div", {
+    style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
     style: dLbl
   }, "Bu\u1ED5i"), /*#__PURE__*/React.createElement("select", {
@@ -7162,13 +7336,10 @@ function LichHocMonthView({
   }, LOAI_OPTIONS.map(l => /*#__PURE__*/React.createElement("option", {
     key: l.value,
     value: l.value
-  }, l.label))))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr 1fr 1fr",
-      gap: 8,
-      marginBottom: 8
-    }
+  }, l.label)))));
+
+  const tietField = specKind !== "hoc" ? null : /*#__PURE__*/React.createElement("div", {
+    style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
     style: dLbl
   }, "T\u1EEB ti\u1EBFt"), /*#__PURE__*/React.createElement("select", {
@@ -7205,19 +7376,34 @@ function LichHocMonthView({
     value: daySpecForm.endTime || "",
     onChange: e => updDaySpec("endTime", e.target.value),
     style: dInp
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 8,
-      marginBottom: 10
-    }
+  })));
+
+  const timeOnlyField = specKind === "hoc" ? null : /*#__PURE__*/React.createElement("div", {
+    style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
     style: dLbl
-  }, "Ph\xF2ng h\u1ECDc"), /*#__PURE__*/React.createElement("input", {
+  }, "Gi\u1EDD b\u1EAFt \u0111\u1EA7u"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: daySpecForm.startTime || "",
+    onChange: e => updDaySpec("startTime", e.target.value),
+    style: dInp
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    style: dLbl
+  }, "Gi\u1EDD k\u1EBFt th\xFAc"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: daySpecForm.endTime || "",
+    onChange: e => updDaySpec("endTime", e.target.value),
+    style: dInp
+  })));
+
+  const roomNoteField = /*#__PURE__*/React.createElement("div", {
+    style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    style: dLbl
+  }, specKind === "hen" ? "\u0110\u1ECBa \u0111i\u1EC3m" : "Ph\xF2ng h\u1ECDc"), /*#__PURE__*/React.createElement("input", {
     value: daySpecForm.room || "",
     onChange: e => updDaySpec("room", e.target.value),
-    placeholder: "A101...",
+    placeholder: specKind === "hen" ? "VD: Ph\xF2ng h\u1ECDp..." : "A101...",
     style: dInp
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
     style: dLbl
@@ -7226,11 +7412,11 @@ function LichHocMonthView({
     onChange: e => updDaySpec("note", e.target.value),
     placeholder: "Ghi ch\xFA...",
     style: dInp
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8
-    }
+  })));
+
+  const saveLabel = specKind === "hen" ? "L\u01B0u l\u1ECBch h\u1EB9n" : specKind === "day" ? "L\u01B0u l\u1ECBch d\u1EA1y" : "L\u01B0u l\u1ECBch tr\xECnh";
+  const formButtons = /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8 }
   }, /*#__PURE__*/React.createElement("button", {
     onClick: addSpecificToSelectedDay,
     style: {
@@ -7244,11 +7430,8 @@ function LichHocMonthView({
       fontWeight: 700,
       flex: 1
     }
-  }, "L\u01B0u l\u1ECBch tr\xECnh"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      setAddingSpecOnDay(false);
-      setDaySpecForm(blankSpecForm);
-    },
+  }, saveLabel), /*#__PURE__*/React.createElement("button", {
+    onClick: closeAddSpecForm,
     style: {
       background: "none",
       border: "1px solid #e5e7eb",
@@ -7259,7 +7442,35 @@ function LichHocMonthView({
       cursor: "pointer",
       fontWeight: 700
     }
-  }, "H\u1EE7y")));
+  }, "H\u1EE7y"));
+
+  const addSpecBlock = !onLichHocChange ? null : !addingSpecOnDay ? /*#__PURE__*/React.createElement("button", {
+    onClick: () => setAddingSpecOnDay(true),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      width: "100%",
+      background: accentLight,
+      border: `1.5px dashed ${accent}55`,
+      borderRadius: 9,
+      color: accentText,
+      fontSize: isMobile ? 14 : 13,
+      fontWeight: 700,
+      padding: isMobile ? "10px 14px" : "8px 14px",
+      cursor: "pointer",
+      marginBottom: 10
+    }
+  }, IC.plus, " Th\xEAm l\u1ECBch tr\xECnh c\u1EE5 th\u1EC3") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#f9fafb",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
+      padding: isMobile ? "12px" : "10px 14px",
+      marginBottom: 10
+    }
+  }, kindSelector, subjectField, newSubjectField, titleField, buoiLoaiField, tietField, timeOnlyField, roomNoteField, formButtons);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -7363,6 +7574,7 @@ function LichHocMonthView({
       const cellMatchesFilter = activeFilter === null ? true : (() => {
         if (activeFilter === "thi") return cell.sessions.some(s => s.type === "thi");
         if (activeFilter === "day") return cell.sessions.some(s => s.type === "day");
+        if (activeFilter === "hen") return cell.sessions.some(s => s.type === "hen");
         if (activeFilter === "lt") return cell.sessions.some(s => s.type === "hoc" && s.loai?.value === "lt");
         if (activeFilter === "th") return cell.sessions.some(s => s.type === "hoc" && s.loai?.value !== "lt");
         return true;
@@ -7374,7 +7586,7 @@ function LichHocMonthView({
         onClick: () => {
           if (!isDimmed) {
             setSelectedDay(isSel ? null : cell.key);
-            setAddingSpecOnDay(false);
+            closeAddSpecForm();
           }
         },
         style: {
@@ -7420,6 +7632,12 @@ function LichHocMonthView({
             const h = parseInt(st.split(":")[0], 10);
             return h < 12;
           }
+          if (s.type === "hen") {
+            const st = s.ap?.startTime || "";
+            if (!st) return true;
+            const h = parseInt(st.split(":")[0], 10);
+            return h < 12;
+          }
           return false;
         });
         const hasChieu = cell.sessions.some(s => {
@@ -7431,6 +7649,12 @@ function LichHocMonthView({
             const h = parseInt(st.split(":")[0], 10);
             return h >= 12 && h < 17;
           }
+          if (s.type === "hen") {
+            const st = s.ap?.startTime || "";
+            if (!st) return false;
+            const h = parseInt(st.split(":")[0], 10);
+            return h >= 12 && h < 17;
+          }
           return false;
         });
         const hasToi = cell.sessions.some(s => {
@@ -7438,6 +7662,12 @@ function LichHocMonthView({
           if (s.type === "thi") return false;
           if (s.type === "day") {
             const st = s.row?.startTime || "";
+            if (!st) return false;
+            const h = parseInt(st.split(":")[0], 10);
+            return h >= 17;
+          }
+          if (s.type === "hen") {
+            const st = s.ap?.startTime || "";
             if (!st) return false;
             const h = parseInt(st.split(":")[0], 10);
             return h >= 17;
@@ -7480,97 +7710,90 @@ function LichHocMonthView({
         })));
       })());
     }));
-  })), activeFilter && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
-      textAlign: "center",
-      fontSize: 12,
-      color: "#9ca3af",
-      fontWeight: 600
-    }
-  }, "\u0110ang l\u1ECDc \xB7 ", /*#__PURE__*/React.createElement("button", {
-    onClick: () => setActiveFilter(null),
-    style: {
-      background: "none",
-      border: "none",
-      color: accent,
-      fontWeight: 700,
-      cursor: "pointer",
-      fontSize: 12,
-      padding: 0
-    }
-  }, "\u2715 B\u1ECF l\u1ECDc")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 8,
       display: "flex",
-      gap: 8,
-      flexWrap: "wrap",
-      justifyContent: "center"
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 8
     }
-  }, [{
-    key: "lt",
-    label: "Lý thuyết",
-    color: "#5c6bc0",
-    bg: "#e8eaf6",
-    border: "#c5cae9",
-    icon: LI([['path',{d:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z'}],['path',{d:'M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z'}]], 15)
-  }, {
-    key: "th",
-    label: "Thực hành",
-    color: "#0891b2",
-    bg: "#e0f2fe",
-    border: "#bae6fd",
-    icon: LI([['path',{d:'M9 3h6v7l3 9H6l3-9V3z'}],['line',{x1:'6',y1:'3',x2:'18',y2:'3'}]], 15)
-  }, {
-    key: "thi",
-    label: "Lịch thi",
-    color: "#dc2626",
-    bg: "#fef2f2",
-    border: "#fecaca",
-    icon: LI([['path',{d:'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9'}],['path',{d:'M13.73 21a2 2 0 0 1-3.46 0'}]], 15)
-  }, {
-    key: "day",
-    label: "Lịch dạy",
-    color: "#a855f7",
-    bg: "#faf5ff",
-    border: "#e9d5ff",
-    icon: LI([['path',{d:'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'}],['circle',{cx:'12',cy:'10',r:'3'}]], 15)
-  }].map(({
-    key,
-    label,
-    color,
-    bg,
-    border,
-    icon
-  }) => {
-    const isActive = activeFilter === key;
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { position: "relative" }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setFilterMenuOpen(v => !v),
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      fontSize: 13,
+      fontWeight: 700,
+      color: activeFilter ? "#fff" : "#374151",
+      background: activeFilter ? (activeFilterOpt?.color || accent) : "#fff",
+      borderRadius: 20,
+      padding: "6px 14px",
+      border: `1.5px solid ${activeFilter ? (activeFilterOpt?.color || accent) : "#e5e7eb"}`,
+      cursor: "pointer",
+      transition: "all .15s"
+    }
+  }, filterFunnelIcon, activeFilter ? activeFilterOpt?.label : "L\u1ECDc", activeFilter && /*#__PURE__*/React.createElement("span", {
+    onClick: e => {
+      e.stopPropagation();
+      setActiveFilter(null);
+      setFilterMenuOpen(false);
+    },
+    style: {
+      display: "flex",
+      alignItems: "center",
+      marginLeft: 2
+    }
+  }, IC.x)), filterMenuOpen && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    onClick: () => setFilterMenuOpen(false),
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 40
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      top: "calc(100% + 6px)",
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
+      boxShadow: "0 10px 28px rgba(0,0,0,.14)",
+      padding: 6,
+      zIndex: 50,
+      minWidth: 190
+    }
+  }, filterOptions.map(f => {
+    const isActive = activeFilter === f.key;
     return /*#__PURE__*/React.createElement("button", {
-      key: key,
-      onClick: () => toggleFilter(key),
+      key: f.key,
+      onClick: () => toggleFilter(f.key),
       style: {
         display: "flex",
         alignItems: "center",
-        gap: 5,
-        fontSize: 13,
-        fontWeight: 700,
-        color,
-        background: isActive ? color : bg,
-        color: isActive ? "#fff" : color,
-        borderRadius: 20,
-        padding: "5px 12px",
-        border: `1.5px solid ${isActive ? color : border}`,
+        gap: 8,
+        width: "100%",
+        background: isActive ? f.bg : "transparent",
+        border: "none",
+        borderRadius: 8,
+        padding: "9px 10px",
         cursor: "pointer",
-        transition: "all .15s",
-        boxShadow: isActive ? `0 2px 8px ${color}44` : "none",
-        transform: isActive ? "scale(1.06)" : "scale(1)"
+        fontSize: 13,
+        fontWeight: 600,
+        color: f.color,
+        textAlign: "left"
       }
-    }, icon, " ", label, isActive && /*#__PURE__*/React.createElement("span", {
-      style: {
-        marginLeft: 2,
-        fontSize: 11
-      }
+    }, f.icon, /*#__PURE__*/React.createElement("span", {
+      style: { flex: 1 }
+    }, f.label), isActive && /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 12, fontWeight: 800 }
     }, "\u2713"));
-  }), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -7734,12 +7957,27 @@ function LichHocMonthView({
         }
       }, /*#__PURE__*/React.createElement("div", {
         style: {
-          fontSize: isMobile ? 14 : 13,
-          fontWeight: 700,
-          color: "#111827",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
           marginBottom: 3
         }
-      }, s.subjName), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: isMobile ? 14 : 13,
+          fontWeight: 700,
+          color: "#111827"
+        }
+      }, s.subjName), s.isSpecific && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 12,
+          fontWeight: 800,
+          background: "#fef3c7",
+          color: "#b45309",
+          borderRadius: 4,
+          padding: "1px 5px"
+        }
+      }, "\uD83D\uDCCC C\u1EE5 th\u1EC3")), /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
           gap: 6,
@@ -7770,7 +8008,102 @@ function LichHocMonthView({
           fontSize: 13,
           color: "#9ca3af"
         }
-      }, row.note))));
+      }, row.note))), s.isSpecific && /*#__PURE__*/React.createElement("button", {
+        onClick: e => {
+          e.stopPropagation();
+          deleteSessionItem(s);
+        },
+        title: "X\xF3a",
+        style: {
+          background: "none",
+          border: "none",
+          color: "#ef4444",
+          cursor: "pointer",
+          padding: 4,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center"
+        }
+      }, IC.x));
+    }
+    if (s.type === "hen") {
+      const ap = s.ap || {};
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          background: "#f0fdfa",
+          border: "1px solid #99f6e4",
+          borderRadius: 10,
+          padding: isMobile ? "10px 12px" : "8px 12px"
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 22,
+          flexShrink: 0
+        }
+      }, "\uD83D\uDCC5"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: isMobile ? 14 : 13,
+          fontWeight: 700,
+          color: "#111827",
+          marginBottom: 3
+        }
+      }, ap.title), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          flexWrap: "wrap"
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 13,
+          fontWeight: 700,
+          background: "#0d9488",
+          color: "#fff",
+          borderRadius: 20,
+          padding: "2px 9px"
+        }
+      }, "L\u1ECBch h\u1EB9n"), ap.startTime && ap.endTime && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 13,
+          color: "#0f766e"
+        }
+      }, ap.startTime, " \u2013 ", ap.endTime), ap.room && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 13,
+          color: "#9ca3af"
+        }
+      }, "\uD83D\uDCCD ", ap.room), ap.note && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 13,
+          color: "#9ca3af"
+        }
+      }, ap.note))), /*#__PURE__*/React.createElement("button", {
+        onClick: e => {
+          e.stopPropagation();
+          deleteSessionItem(s);
+        },
+        title: "X\xF3a",
+        style: {
+          background: "none",
+          border: "none",
+          color: "#ef4444",
+          cursor: "pointer",
+          padding: 4,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center"
+        }
+      }, IC.x));
     }
     const buoi = s.buoi || BUOI_OPTIONS.find(b => b.value === s.rule?.buoi) || BUOI_OPTIONS[0];
     const loai = s.loai || LOAI_OPTIONS.find(l => l.value === s.rule?.loai) || LOAI_OPTIONS[0];
@@ -7855,7 +8188,23 @@ function LichHocMonthView({
         color: "#9ca3af",
         marginTop: 3
       }
-    }, s.rule.room && `📍 ${s.rule.room}`, s.rule.room && s.rule.note && " · ", s.rule.note)));
+    }, s.rule.room && `📍 ${s.rule.room}`, s.rule.room && s.rule.note && " · ", s.rule.note)), s.isSpecific && /*#__PURE__*/React.createElement("button", {
+      onClick: e => {
+        e.stopPropagation();
+        deleteSessionItem(s);
+      },
+      title: "X\xF3a",
+      style: {
+        background: "none",
+        border: "none",
+        color: "#ef4444",
+        cursor: "pointer",
+        padding: 4,
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center"
+      }
+    }, IC.x));
   }))));
 }
 
@@ -7867,6 +8216,7 @@ function CalendarPage({
   onScheduleChange,
   subjects,
   soanBaiData,
+  setSoanBaiData,
   lichHocData,
   onLichHocChange
 }) {
@@ -8059,7 +8409,8 @@ function CalendarPage({
     soanBaiData: soanBaiData || {
       subjects: []
     },
-    onLichHocChange: setLichHocData
+    onLichHocChange: setLichHocData,
+    onSoanBaiChange: setSoanBaiData
   }) : activeSection === "manage" ? /*#__PURE__*/React.createElement("div", null, lichHocSubjects.length === 0 && !addingSubject && /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
@@ -11619,6 +11970,7 @@ function App() {
     onScheduleChange: setSchedule,
     subjects: data.subjects,
     soanBaiData: soanBaiData,
+    setSoanBaiData: setSoanBaiData,
     lichHocData: lichHocData,
     onLichHocChange: setLichHocData
   }) : activeTab === "soanbai" ? /*#__PURE__*/React.createElement(SoanBaiPage, {
