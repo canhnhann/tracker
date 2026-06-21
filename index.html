@@ -4475,6 +4475,7 @@ function generateDaysInMonth(rule, year, month, semesterStart) {
     const date = new Date(year, month, d);
     if (date.getDay() !== rule.dayOfWeek) continue;
     const dateStr = toDateKey(date);
+    if ((rule.excludedDates || []).includes(dateStr)) continue;
     if (!semesterStart) {
       days.push(dateStr);
       continue;
@@ -5775,7 +5776,7 @@ function HomNayPage({
     (subj.scheduleRows || []).forEach(row => {
       if (!row.day) return;
       const targetDow = DOW_MAP_VN[row.day];
-      if (targetDow !== undefined && now.getDay() === targetDow) sessions.push({
+      if (targetDow !== undefined && now.getDay() === targetDow && !(row.excludedDates || []).includes(todayStr)) sessions.push({
         type: "day",
         subjName: subj.name,
         row
@@ -5923,7 +5924,7 @@ function HomNayPage({
     (subj.scheduleRows || []).forEach(row => {
       if (!row.day) return;
       const targetDow = DOW_MAP_VN[row.day];
-      if (targetDow !== undefined && tomorrow.getDay() === targetDow) tomorrowSessions.push({
+      if (targetDow !== undefined && tomorrow.getDay() === targetDow && !(row.excludedDates || []).includes(tomorrowStr)) tomorrowSessions.push({
         type: "day",
         subjName: subj.name,
         row
@@ -7063,6 +7064,7 @@ function LichHocMonthView({
         const date = new Date(year, month, d);
         if (date.getDay() !== targetDow) continue;
         const dateStr = toDateKey(date);
+        if ((row.excludedDates || []).includes(dateStr)) continue;
         addToMap(dateStr, {
           type: "day",
           subjName: subj.name,
@@ -7180,6 +7182,20 @@ function LichHocMonthView({
       }));
       return;
     }
+    if (s.type === "day" && !s.isSpecific) {
+      if (!onSoanBaiChange || !selectedDay) return;
+      onSoanBaiChange(d => ({
+        ...d,
+        subjects: (d.subjects || []).map(subj => ({
+          ...subj,
+          scheduleRows: (subj.scheduleRows || []).map(row => row.id === s.row.id ? {
+            ...row,
+            excludedDates: [...(row.excludedDates || []), selectedDay]
+          } : row)
+        }))
+      }));
+      return;
+    }
     if (s.type === "hoc" && s.isSpecific) {
       if (!onLichHocChange) return;
       onLichHocChange(d => ({
@@ -7187,6 +7203,20 @@ function LichHocMonthView({
         subjects: (d.subjects || []).map(subj => ({
           ...subj,
           specifics: (subj.specifics || []).filter(sp => sp.id !== s.rule.id)
+        }))
+      }));
+      return;
+    }
+    if (s.type === "hoc" && !s.isSpecific) {
+      if (!onLichHocChange || !selectedDay) return;
+      onLichHocChange(d => ({
+        ...d,
+        subjects: (d.subjects || []).map(subj => ({
+          ...subj,
+          rules: (subj.rules || []).map(rule => rule.id === s.rule.id ? {
+            ...rule,
+            excludedDates: [...(rule.excludedDates || []), selectedDay]
+          } : rule)
         }))
       }));
       return;
@@ -8115,12 +8145,12 @@ function LichHocMonthView({
           fontSize: 13,
           color: "#9ca3af"
         }
-      }, row.note))), s.isSpecific && /*#__PURE__*/React.createElement("button", {
+      }, row.note))), /*#__PURE__*/React.createElement("button", {
         onClick: e => {
           e.stopPropagation();
           deleteSessionItem(s);
         },
-        title: "X\xF3a",
+        title: s.isSpecific ? "X\xF3a" : "B\u1ECF bu\u1ED5i n\xE0y (ch\u1EC9 ng\xE0y n\xE0y, l\u1ECBch l\u1EB7p v\u1EABn c\xF2n c\xE1c tu\u1EA7n kh\xE1c)",
         style: {
           background: "none",
           border: "none",
@@ -8295,12 +8325,12 @@ function LichHocMonthView({
         color: "#9ca3af",
         marginTop: 3
       }
-    }, s.rule.room && `📍 ${s.rule.room}`, s.rule.room && s.rule.note && " · ", s.rule.note)), s.isSpecific && /*#__PURE__*/React.createElement("button", {
+    }, s.rule.room && `📍 ${s.rule.room}`, s.rule.room && s.rule.note && " · ", s.rule.note)), /*#__PURE__*/React.createElement("button", {
       onClick: e => {
         e.stopPropagation();
         deleteSessionItem(s);
       },
-      title: "X\xF3a",
+      title: s.isSpecific ? "X\xF3a" : "B\u1ECF bu\u1ED5i n\xE0y (ch\u1EC9 ng\xE0y n\xE0y, l\u1ECBch l\u1EB7p v\u1EABn c\xF2n c\xE1c tu\u1EA7n kh\xE1c)",
       style: {
         background: "none",
         border: "none",
