@@ -1154,7 +1154,7 @@ function LI(paths, size=18, sw='2') {
 }
 const IC = {
   plus:      LI([['path',{d:'M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm5 11h-4v4a1 1 0 0 1-2 0v-4H7a1 1 0 0 1 0-2h4V7a1 1 0 0 1 2 0v4h4a1 1 0 0 1 0 2z',fill:'currentColor',stroke:'none'}]], 18),
-  trash:     LI([['path',{d:'M9 3h6a1 1 0 0 1 1 1H8a1 1 0 0 1 1-1zM3 6h18v2H3V6zm2 3h14l-1.5 12H6.5L5 9zm4 3v6h1v-6H9zm3 0v6h1v-6h-1zm3 0v6h1v-6h-1z',fill:'currentColor',stroke:'none'}]], 17),
+  trash:     LI([['path',{d:'M4.2,7.4H19.8A1.2,1.2 0 0 1 21,8.6V9.0A1.2,1.2 0 0 1 19.8,10.2H4.2A1.2,1.2 0 0 1 3,9.0V8.6A1.2,1.2 0 0 1 4.2,7.4Z M10.3,2.5H13.7A1.8,1.8 0 0 1 15.5,4.3V7.4H8.5V4.3A1.8,1.8 0 0 1 10.3,2.5Z M10.8,3.8H13.2A1.0,1.0 0 0 1 14.2,4.8V7.4H9.8V4.8A1.0,1.0 0 0 1 10.8,3.8Z M4.5,10.2H19.5L18.4,19.6A1.3,1.3 0 0 1 17.1,20.9H7.2A1.3,1.3 0 0 1 5.9,19.6Z M8.85,13.85A0.65,0.65 0 0 1 9.5,13.2A0.65,0.65 0 0 1 10.15,13.85L10.15,17.95A0.65,0.65 0 0 1 9.5,18.6A0.65,0.65 0 0 1 8.85,17.95Z M11.35,13.85A0.65,0.65 0 0 1 12,13.2A0.65,0.65 0 0 1 12.65,13.85L12.65,17.95A0.65,0.65 0 0 1 12,18.6A0.65,0.65 0 0 1 11.35,17.95Z M13.85,13.85A0.65,0.65 0 0 1 14.5,13.2A0.65,0.65 0 0 1 15.15,13.85L15.15,17.95A0.65,0.65 0 0 1 14.5,18.6A0.65,0.65 0 0 1 13.85,17.95Z',fill:'currentColor',fillRule:'evenodd',stroke:'none'}]], 17),
   chevron:   open => React.createElement('span', {
     style:{ display:'inline-flex', alignItems:'center', lineHeight:0,
             transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform .2s' }
@@ -8161,7 +8161,7 @@ function LichHocMonthView({
           display: "flex",
           alignItems: "center"
         }
-      }, IC.x));
+      }, IC.trash));
     }
     if (s.type === "hen") {
       const ap = s.ap || {};
@@ -8240,7 +8240,7 @@ function LichHocMonthView({
           display: "flex",
           alignItems: "center"
         }
-      }, IC.x));
+      }, IC.trash));
     }
     const buoi = s.buoi || BUOI_OPTIONS.find(b => b.value === s.rule?.buoi) || BUOI_OPTIONS[0];
     const loai = s.loai || LOAI_OPTIONS.find(l => l.value === s.rule?.loai) || LOAI_OPTIONS[0];
@@ -8341,7 +8341,7 @@ function LichHocMonthView({
         display: "flex",
         alignItems: "center"
       }
-    }, IC.x));
+    }, IC.trash));
   }))));
 }
 
