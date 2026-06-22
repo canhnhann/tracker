@@ -11522,7 +11522,8 @@ function App() {
             const v = JSON.parse(d.thoikhoa);
             const safe = {
               subjects: Array.isArray(v?.subjects) ? v.subjects : [],
-              semesterStart: v?.semesterStart || ""
+              semesterStart: v?.semesterStart || "",
+              appointments: Array.isArray(v?.appointments) ? v.appointments : []
             };
             setLichHocDataState(safe);
             saveLichHoc(safe);
