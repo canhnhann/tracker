@@ -7819,6 +7819,9 @@ function LichHocMonthView({
       padding: 6,
       zIndex: 50,
       minWidth: 190,
+      maxHeight: "60vh",
+      overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
       animation: "filterDropIn .18s cubic-bezier(.4,0,.2,1) both"
     }
   }, filterOptions.map(f => {
@@ -7885,8 +7888,9 @@ function LichHocMonthView({
       padding: 12,
       zIndex: 50,
       minWidth: 230,
-      maxHeight: 280,
+      maxHeight: "60vh",
       overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
       animation: "filterDropIn .18s cubic-bezier(.4,0,.2,1) both"
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -11722,31 +11726,7 @@ function App() {
       marginBottom: 6,
       marginTop: 10
     }
-  }, "TR\u1EA0NG TH\xC1I \u0110\u1ED6NG B\u1ED8"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-      background: syncOk ? "#f0fdf4" : fbReady ? "#fffbeb" : "#f9fafb",
-      border: `1px solid ${syncOk ? "#bbf7d0" : fbReady ? "#fde68a" : "#e5e7eb"}`,
-      borderRadius: 8,
-      padding: "6px 10px",
-      marginBottom: 14,
-      fontSize: 13,
-      color: syncOk ? "#15803d" : fbReady ? "#92400e" : "#9ca3af",
-      fontWeight: 700
-    }
-  }, syncing ? /*#__PURE__*/React.createElement("span", {
-    style: {
-      display: "inline-block",
-      width: 10,
-      height: 10,
-      border: "2px solid currentColor",
-      borderTopColor: "transparent",
-      borderRadius: "50%",
-      animation: "spin 0.7s linear infinite"
-    }
-  }) : /*#__PURE__*/React.createElement("span", null, syncOk ? "☁️✓" : fbReady ? "☁️" : "○"), syncOk ? "Đã lưu" : fbReady ? "Đang kết nối..." : "Offline"), /*#__PURE__*/React.createElement("div", {
+  }, null), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
       color: "#9ca3af",
@@ -11754,46 +11734,13 @@ function App() {
       marginBottom: 6,
       marginTop: 10
     }
-  }, "ID T\xC0I KHO\u1EA2N C\u1EE6A B\u1EA0N"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      alignItems: "center",
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("code", {
-    style: {
-      flex: 1,
-      background: "#f3f4f6",
-      borderRadius: 8,
-      padding: "8px 12px",
-      fontSize: 13,
-      color: "#374151",
-      letterSpacing: ".03em",
-      wordBreak: "break-all"
-    }
-  }, syncId || "Đang đăng nhập..."), syncId && /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      navigator.clipboard.writeText(syncId);
-    },
-    style: {
-      background: theme.accent,
-      border: "none",
-      borderRadius: 8,
-      color: "#fff",
-      fontSize: 14,
-      padding: "8px 14px",
-      cursor: "pointer",
-      fontWeight: 700,
-      flexShrink: 0
-    }
-  }, "Sao ch\xE9p")), /*#__PURE__*/React.createElement("p", {
+  }, null), /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 13,
       color: "#6b7280",
       marginTop: 4
     }
-  }, "\uD83D\uDD12 \u0110\u0103ng nh\u1EADp b\u1EB1ng email \u2014 d\u1EEF li\u1EC7u ri\xEAng t\u01B0, ch\u1EC9 b\u1EA1n m\u1EDBi truy c\u1EADp \u0111\u01B0\u1EE3c."), authEmail && /*#__PURE__*/React.createElement("p", {
+  }, null), authEmail && /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 13,
       color: "#9ca3af",
