@@ -8519,147 +8519,7 @@ function CalendarPage({
       margin: "0 auto",
       padding: isMobile ? `16px 16px ${bottomPad}` : "24px 28px 80px"
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 4,
-      marginBottom: 16,
-      background: "#fff",
-      borderRadius: 12,
-      padding: 4,
-      border: "1px solid #e5e7eb",
-      boxShadow: "0 1px 4px rgba(0,0,0,.04)",
-      overflowX: "auto"
-    }
-  }, [["calendar", IC.calendar, "Lịch tháng"], ["manage", IC.book, "Quản lý môn"], ["lithi", IC.flag, "Lịch thi"], ["lichdaytong", IC.pen, "Lịch dạy"]].map(([k, icon, label]) => /*#__PURE__*/React.createElement("button", {
-    key: k,
-    onClick: () => setActiveSection(k),
-    style: {
-      flex: 1,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      padding: isMobile ? "10px 6px" : "8px 8px",
-      background: activeSection === k ? accentLight : "transparent",
-      border: "none",
-      borderRadius: 9,
-      whiteSpace: "nowrap",
-      color: activeSection === k ? accentText : "#9ca3af",
-      fontSize: isMobile ? 12 : 11,
-      fontWeight: 700,
-      cursor: "pointer",
-      transition: "background .15s, color .15s"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: activeSection === k ? accent : "#d1d5db"
-    }
-  }, icon), label))), (() => {
-    const currentWeek = semStart ? getWeekNumber(today(), semStart) : null;
-    const isEven = currentWeek && currentWeek % 2 === 0;
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginBottom: 14
-      }
-    }, currentWeek && currentWeek > 0 && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 8,
-        background: accentLight,
-        border: `1.5px solid ${accent}40`,
-        borderRadius: 10,
-        padding: isMobile ? "12px 16px" : "10px 14px"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: isMobile ? 26 : 22
-      }
-    }, "\uD83D\uDCC5"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: isMobile ? 18 : 16,
-        fontWeight: 800,
-        color: accentText,
-        lineHeight: 1.2
-      }
-    }, "Tu\u1EA7n ", /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: isMobile ? 26 : 22,
-        letterSpacing: "-.02em"
-      }
-    }, currentWeek), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: isMobile ? 13 : 12,
-        fontWeight: 600,
-        background: isEven ? "#fef3c7" : "#dbeafe",
-        color: isEven ? "#92400e" : "#1e40af",
-        borderRadius: 6,
-        padding: "2px 8px",
-        marginLeft: 8,
-        verticalAlign: "middle"
-      }
-    }, "tu\u1EA7n ", isEven ? "chẵn" : "lẻ")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        color: accentText,
-        opacity: .7,
-        marginTop: 2
-      }
-    }, "H\u1ECDc k\u1EF3 b\u1EAFt \u0111\u1EA7u ", new Date(semStart + "T00:00:00").toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    })))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: 10,
-        padding: isMobile ? "12px 14px" : "10px 14px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        flexWrap: "wrap"
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 13,
-        fontWeight: 700,
-        color: "#9ca3af",
-        textTransform: "uppercase",
-        letterSpacing: ".06em",
-        flexShrink: 0
-      }
-    }, "\uD83D\uDCC6 \u0110\u1EA7u h\u1ECDc k\u1EF3"), /*#__PURE__*/React.createElement("input", {
-      type: "date",
-      value: semStart,
-      onChange: e => setLichHocData(d => ({
-        ...d,
-        semesterStart: e.target.value
-      })),
-      style: {
-        background: "none",
-        border: "none",
-        borderBottom: "1px solid #e5e7eb",
-        color: "#374151",
-        fontSize: isMobile ? 15 : 13,
-        outline: "none",
-        cursor: "pointer",
-        minHeight: isMobile ? 36 : "auto"
-      }
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 13,
-        color: "#d1d5db",
-        flex: 1
-      }
-    }, semStart ? currentWeek && currentWeek > 0 ? `→ Hiện tại: tuần ${currentWeek} (tuần ${isEven ? "chẵn" : "lẻ"})` : "→ Dùng để tính số tuần HK (tuần lẻ/chẵn)" : "Nhập để xem bạn đang ở tuần mấy")));
-  })(), activeSection === "calendar" ? /*#__PURE__*/React.createElement(LichHocMonthView, {
+  }, /*#__PURE__*/React.createElement(LichHocMonthView, {
     lichHocData: lichHocData,
     theme: theme,
     isMobile: isMobile,
@@ -8669,7 +8529,7 @@ function CalendarPage({
     },
     onLichHocChange: setLichHocData,
     onSoanBaiChange: setSoanBaiData
-  }) : activeSection === "manage" ? /*#__PURE__*/React.createElement("div", null, lichHocSubjects.length === 0 && !addingSubject && /*#__PURE__*/React.createElement("div", {
+  }), null && /*#__PURE__*/React.createElement("div", null, lichHocSubjects.length === 0 && !addingSubject && /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: "center",
       padding: "60px 0",
@@ -8766,23 +8626,7 @@ function CalendarPage({
       fontWeight: 500,
       minHeight: isMobile ? 56 : "auto"
     }
-  }, IC.plus, " Th\xEAm m\xF4n h\u1ECDc")) : activeSection === "lithi" ?
-  /*#__PURE__*/
-  /* ── Lịch thi (từ tab Môn học) ── */
-  React.createElement(LichThiInline, {
-    subjects: subjects || [],
-    theme: theme,
-    isMobile: isMobile
-  }) :
-  /*#__PURE__*/
-  /* ── Lịch dạy tổng hợp (từ tab Lớp dạy) ── */
-  React.createElement(LichDayInline, {
-    soanBaiData: soanBaiData || {
-      subjects: []
-    },
-    theme: theme,
-    isMobile: isMobile
-  }));
+  }, IC.plus, " Th\xEAm m\xF4n h\u1ECDc")));
 }
 
 /* ── LichThiInline: hiển thị lịch thi từ tab Môn học ── */
@@ -11837,6 +11681,75 @@ function App() {
     onChange: setDarkMode,
     theme: theme
   })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: "#9ca3af",
+      fontWeight: 600,
+      marginBottom: 6,
+      marginTop: 10
+    }
+  }, "HỌC KỲ"), (() => {
+    const cwSett = lichHocData && lichHocData.semesterStart ? getWeekNumber(today(), lichHocData.semesterStart) : null;
+    const isEvenSett = cwSett && cwSett % 2 === 0;
+    const semStartSett = (lichHocData || {}).semesterStart || "";
+    const accentSett = theme && theme.accent ? theme.accent : "#6366f1";
+    const accentLightSett = theme && theme.accentLight ? theme.accentLight : "#eef2ff";
+    const accentTextSett = theme && theme.accentText ? theme.accentText : "#4338ca";
+    return /*#__PURE__*/React.createElement("div", { style: { marginBottom: 14 } },
+      cwSett && cwSett > 0 && /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: "flex", alignItems: "center", gap: 10, marginBottom: 8,
+          background: accentLightSett, border: `1.5px solid ${accentSett}40`,
+          borderRadius: 10, padding: isMobile ? "12px 16px" : "10px 14px"
+        }
+      },
+        /*#__PURE__*/React.createElement("span", { style: { fontSize: isMobile ? 26 : 22 } }, "\uD83D\uDCC5"),
+        /*#__PURE__*/React.createElement("div", { style: { flex: 1 } },
+          /*#__PURE__*/React.createElement("div", {
+            style: { fontSize: isMobile ? 18 : 16, fontWeight: 800, color: accentTextSett, lineHeight: 1.2 }
+          },
+            "Tu\u1EA7n ",
+            /*#__PURE__*/React.createElement("span", { style: { fontSize: isMobile ? 26 : 22, letterSpacing: "-.02em" } }, cwSett),
+            /*#__PURE__*/React.createElement("span", {
+              style: {
+                fontSize: isMobile ? 13 : 12, fontWeight: 600,
+                background: isEvenSett ? "#fef3c7" : "#dbeafe",
+                color: isEvenSett ? "#92400e" : "#1e40af",
+                borderRadius: 6, padding: "2px 8px", marginLeft: 8, verticalAlign: "middle"
+              }
+            }, "tu\u1EA7n ", isEvenSett ? "chẵn" : "lẻ")
+          ),
+          /*#__PURE__*/React.createElement("div", {
+            style: { fontSize: 12, color: accentTextSett, opacity: .7, marginTop: 2 }
+          }, "H\u1ECDc k\u1EF3 b\u1EAFt \u0111\u1EA7u ", new Date(semStartSett + "T00:00:00").toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }))
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
+          padding: isMobile ? "12px 14px" : "10px 14px",
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap"
+        }
+      },
+        /*#__PURE__*/React.createElement("span", {
+          style: { fontSize: 13, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: ".06em", flexShrink: 0 }
+        }, "\uD83D\uDCC6 \u0110\u1EA7u h\u1ECDc k\u1EF3"),
+        /*#__PURE__*/React.createElement("input", {
+          type: "date",
+          value: semStartSett,
+          onChange: e => setLichHocData(d => ({ ...d, semesterStart: e.target.value })),
+          style: {
+            background: "none", border: "none", borderBottom: "1px solid #e5e7eb",
+            color: "#374151", fontSize: isMobile ? 15 : 13, outline: "none",
+            cursor: "pointer", minHeight: isMobile ? 36 : "auto"
+          }
+        }),
+        /*#__PURE__*/React.createElement("span", {
+          style: { fontSize: 13, color: "#d1d5db", flex: 1 }
+        }, semStartSett ? cwSett && cwSett > 0 ? `→ Hiện tại: tuần ${cwSett} (tuần ${isEvenSett ? "chẵn" : "lẻ"})` : "→ Dùng để tính số tuần HK (tuần lẻ/chẵn)" : "Nhập để xem bạn đang ở tuần mấy")
+      )
+    );
+  })(), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
       color: "#9ca3af",
