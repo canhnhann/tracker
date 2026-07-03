@@ -66,6 +66,22 @@
     from { opacity: 0; transform: translateY(-8px) scale(.97); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
+  @keyframes borderRunDash {
+    0%   { stroke-dashoffset: 0;    opacity: 1; }
+    82%  { opacity: 1; }
+    100% { stroke-dashoffset: -100; opacity: 0; }
+  }
+  .day-border-run-rect {
+    fill: none;
+    stroke: #111;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 24 76;
+    animation: borderRunDash .9s linear;
+  }
+  .dark .day-border-run-rect {
+    stroke: #f1f1f1;
+  }
 
   /* ── Dark mode ── */
   /* Dark mode: filter trên #dark-filter-wrap thay vì #app để NavBar
@@ -6845,6 +6861,7 @@ function LichHocMonthView({
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
+  const [borderRunEffect, setBorderRunEffect] = useState(null); // { key, id }
   const [activeFilter, setActiveFilter] = useState(null); // null | "lt" | "th" | "thi" | "day" | "hen"
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [statsMenuOpen, setStatsMenuOpen] = useState(false);
@@ -7685,10 +7702,15 @@ function LichHocMonthView({
         onClick: () => {
           if (!isDimmed) {
             setSelectedDay(isSel ? null : cell.key);
+            setBorderRunEffect({
+              key: cell.key,
+              id: Date.now() + Math.random()
+            });
             closeAddSpecForm();
           }
         },
         style: {
+          position: "relative",
           minHeight: isMobile ? 64 : 66,
           border: "none",
           background: isSel ? accentLight : isHighlighted ? `${accent}12` : "transparent",
@@ -7708,7 +7730,26 @@ function LichHocMonthView({
         onMouseLeave: e => {
           if (!isSel && !cell.isToday) e.currentTarget.style.background = isHighlighted ? `${accent}12` : "transparent";
         }
-      }, /*#__PURE__*/React.createElement("div", {
+      }, borderRunEffect && borderRunEffect.key === cell.key && /*#__PURE__*/React.createElement("svg", {
+        key: borderRunEffect.id,
+        style: {
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          overflow: "visible"
+        },
+        onAnimationEnd: () => setBorderRunEffect(prev => prev && prev.id === borderRunEffect.id ? null : prev)
+      }, /*#__PURE__*/React.createElement("rect", {
+        x: "1.5",
+        y: "1.5",
+        width: "calc(100% - 3px)",
+        height: "calc(100% - 3px)",
+        rx: 4,
+        pathLength: 100,
+        className: "day-border-run-rect"
+      })), /*#__PURE__*/React.createElement("div", {
         style: {
           width: isMobile ? 28 : 26,
           height: isMobile ? 28 : 26,
