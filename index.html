@@ -5821,6 +5821,15 @@ function HomNayPage({
         row
       });
     });
+    // Lịch dạy (cụ thể)
+    (subj.specifics || []).forEach(sp => {
+      if (sp.date === todayStr) sessions.push({
+        type: "day",
+        subjName: subj.name,
+        row: sp,
+        isSpecific: true
+      });
+    });
   });
 
   // Lịch hẹn (cụ thể)
@@ -5989,6 +5998,15 @@ function HomNayPage({
         row
       });
     });
+    // Lịch dạy (cụ thể) ngày mai
+    (subj.specifics || []).forEach(sp => {
+      if (sp.date === tomorrowStr) tomorrowSessions.push({
+        type: "day",
+        subjName: subj.name,
+        row: sp,
+        isSpecific: true
+      });
+    });
   });
   // Lịch hẹn ngày mai
   ((lichHocData || {}).appointments || []).forEach(ap => {
@@ -6016,6 +6034,7 @@ function HomNayPage({
       if (row.startTime && row.endTime) subtitleParts.push(`${row.startTime}–${row.endTime}`);else if (row.startTime) subtitleParts.push(row.startTime);
       if (row.room) subtitleParts.push(row.room);
       if (row.note) subtitleParts.push(row.note);
+      if (s.isSpecific) subtitleParts.push("Cụ thể");
     } else if (s.type === "hen") {
       const ap = s.ap || {};
       color = "#0d9488";
