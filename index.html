@@ -5823,6 +5823,14 @@ function HomNayPage({
     });
   });
 
+  // Lịch hẹn (cụ thể)
+  ((lichHocData || {}).appointments || []).forEach(ap => {
+    if (ap.date === todayStr) sessions.push({
+      type: "hen",
+      ap
+    });
+  });
+
   // ── Group by buoi ──
   const getBuoi = s => {
     if (s.type === "hoc") return s.buoi?.value || "sang";
@@ -5833,6 +5841,11 @@ function HomNayPage({
     }
     if (s.type === "day") {
       const h = parseInt((s.row?.startTime || "").split(":")[0], 10);
+      if (isNaN(h)) return "sang";
+      return h >= 17 ? "toi" : h >= 12 ? "chieu" : "sang";
+    }
+    if (s.type === "hen") {
+      const h = parseInt((s.ap?.startTime || "").split(":")[0], 10);
       if (isNaN(h)) return "sang";
       return h >= 17 ? "toi" : h >= 12 ? "chieu" : "sang";
     }
@@ -5867,6 +5880,13 @@ function HomNayPage({
     if (s.type === "day") {
       if (s.row?.startTime) {
         const [h, m] = s.row.startTime.split(":").map(Number);
+        return h * 60 + m;
+      }
+      return 7 * 60;
+    }
+    if (s.type === "hen") {
+      if (s.ap?.startTime) {
+        const [h, m] = s.ap.startTime.split(":").map(Number);
         return h * 60 + m;
       }
       return 7 * 60;
@@ -5970,6 +5990,13 @@ function HomNayPage({
       });
     });
   });
+  // Lịch hẹn ngày mai
+  ((lichHocData || {}).appointments || []).forEach(ap => {
+    if (ap.date === tomorrowStr) tomorrowSessions.push({
+      type: "hen",
+      ap
+    });
+  });
   tomorrowSessions.sort((a, b) => getSortTime(a) - getSortTime(b));
   const renderSessionRow = (s, i) => {
     let color, emoji, title, subtitleParts = [];
@@ -5989,6 +6016,15 @@ function HomNayPage({
       if (row.startTime && row.endTime) subtitleParts.push(`${row.startTime}–${row.endTime}`);else if (row.startTime) subtitleParts.push(row.startTime);
       if (row.room) subtitleParts.push(row.room);
       if (row.note) subtitleParts.push(row.note);
+    } else if (s.type === "hen") {
+      const ap = s.ap || {};
+      color = "#0d9488";
+      emoji = "📅";
+      title = ap.title;
+      subtitleParts.push("Lịch hẹn");
+      if (ap.startTime && ap.endTime) subtitleParts.push(`${ap.startTime}–${ap.endTime}`);else if (ap.startTime) subtitleParts.push(ap.startTime);
+      if (ap.room) subtitleParts.push(ap.room);
+      if (ap.note) subtitleParts.push(ap.note);
     } else {
       const buoi = s.buoi || BUOI_OPTIONS[0];
       const loai = s.loai || LOAI_OPTIONS[0];
@@ -6031,7 +6067,7 @@ function HomNayPage({
         fontWeight: 700,
         color: "#111827"
       }
-    }, emoji, " ", title), /*#__PURE__*/React.createElement("div", {
+    }, title), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         color: "#9ca3af",
