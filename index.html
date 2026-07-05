@@ -1452,6 +1452,8 @@ function NavBar({
 
 /* ─── TodoPage ─── */
 const TODO_STORAGE_KEY = "studytodo_todos_v1";
+const TODO_HISTORY_KEY = "studytodo_todo_history_v1";
+const TODO_LASTDATE_KEY = "studytodo_todos_lastdate_v1";
 function loadTodos() {
   try {
     const d = localStorage.getItem(TODO_STORAGE_KEY);
@@ -1465,11 +1467,52 @@ function saveTodos(t) {
     localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(t));
   } catch {}
 }
+function loadTodoHistory() {
+  try {
+    const d = localStorage.getItem(TODO_HISTORY_KEY);
+    const v = d ? JSON.parse(d) : {};
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+function saveTodoHistory(h) {
+  try {
+    localStorage.setItem(TODO_HISTORY_KEY, JSON.stringify(h));
+  } catch {}
+}
+// Chuyển các việc đã xong của (các) ngày trước vào lịch sử, giữ lại việc chưa xong
+function rolloverTodos(todos, todoHistory) {
+  const today = toDateKey(new Date());
+  const lastDate = localStorage.getItem(TODO_LASTDATE_KEY);
+  if (!lastDate) {
+    localStorage.setItem(TODO_LASTDATE_KEY, today);
+    return null;
+  }
+  if (lastDate === today) return null;
+  const done = todos.filter(t => t.done);
+  const undone = todos.filter(t => !t.done);
+  let nextHistory = todoHistory;
+  if (done.length) {
+    nextHistory = {
+      ...todoHistory,
+      [lastDate]: [...(todoHistory[lastDate] || []), ...done]
+    };
+  }
+  localStorage.setItem(TODO_LASTDATE_KEY, today);
+  if (done.length === 0 && undone.length === todos.length) return null;
+  return {
+    todos: undone,
+    history: nextHistory
+  };
+}
 function TodoPage({
   theme,
   isMobile,
   todos,
-  setTodos
+  setTodos,
+  todoHistory,
+  setTodoHistory
 }) {
   const {
     accent,
@@ -1478,6 +1521,7 @@ function TodoPage({
   } = theme;
   const [input, setInput] = React.useState("");
   const [time, setTime] = React.useState("");
+  const [showHistory, setShowHistory] = React.useState(false);
   const inputRef = React.useRef(null);
   const addTodo = () => {
     const text = input.trim();
@@ -1508,6 +1552,109 @@ function TodoPage({
   });
   const doneCount = todos.filter(t => t.done).length;
   const activeCount = todos.filter(t => !t.done).length;
+  const historyDates = Object.keys(todoHistory || {}).sort((a, b) => b.localeCompare(a));
+  const deleteHistoryDay = date => setTodoHistory(prev => {
+    const next = { ...prev };
+    delete next[date];
+    return next;
+  });
+  const deleteHistoryItem = (date, id) => setTodoHistory(prev => ({
+    ...prev,
+    [date]: (prev[date] || []).filter(t => t.id !== id)
+  }));
+  const formatHistoryDate = key => {
+    const d = new Date(key + "T00:00:00");
+    if (isNaN(d)) return key;
+    return d.toLocaleDateString("vi-VN", {
+      weekday: "long",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+  };
+  const historyPanel = !showHistory ? null : /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 18,
+      paddingTop: 16,
+      borderTop: "1px solid #eef0f2"
+    }
+  }, historyDates.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      padding: "24px 0",
+      color: "#9ca3af",
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, "Ch\u01B0a c\xF3 l\u1ecbch s\u1eed") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 14
+    }
+  }, historyDates.map(date => /*#__PURE__*/React.createElement("div", {
+    key: date
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: "#6b7280",
+      textTransform: "capitalize"
+    }
+  }, formatHistoryDate(date)), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteHistoryDay(date),
+    style: {
+      fontSize: 11,
+      color: "#9ca3af",
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      fontWeight: 600,
+      padding: "2px 4px"
+    }
+  }, "Xo\xE1")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 6
+    }
+  }, (todoHistory[date] || []).map(item => /*#__PURE__*/React.createElement("div", {
+    key: item.id,
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      background: "#fafafa",
+      border: "1px solid #f0f0f0",
+      borderRadius: 10,
+      padding: "8px 10px"
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 13,
+      color: "#9ca3af",
+      textDecoration: "line-through",
+      wordBreak: "break-word"
+    }
+  }, item.text), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteHistoryItem(date, item.id),
+    style: {
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      color: "#d1d5db",
+      fontSize: 13,
+      padding: "2px 6px"
+    }
+  }, "\xD7"))))))));
   return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: isMobile ? "14px 14px 0" : "20px 0 40px",
@@ -1534,7 +1681,24 @@ function TodoPage({
       color: "#9ca3af",
       marginTop: 2
     }
-  }, activeCount, " vi\u1EC7c c\u1EA7n l\xE0m", doneCount > 0 ? ` · ${doneCount} đã xong` : "")), doneCount > 0 && /*#__PURE__*/React.createElement("button", {
+  }, activeCount, " vi\u1EC7c c\u1EA7n l\xE0m", doneCount > 0 ? ` · ${doneCount} đã xong` : "")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setShowHistory(v => !v),
+    style: {
+      fontSize: 13,
+      color: showHistory ? "#fff" : "#9ca3af",
+      background: showHistory ? accent : "none",
+      border: `1px solid ${showHistory ? accent : "#e5e7eb"}`,
+      borderRadius: 8,
+      padding: "6px 12px",
+      cursor: "pointer",
+      fontWeight: 600
+    }
+  }, "L\u1ecbch s\u1eed", historyDates.length > 0 ? ` (${historyDates.length})` : ""), doneCount > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: clearDone,
     style: {
       fontSize: 13,
@@ -1546,7 +1710,7 @@ function TodoPage({
       cursor: "pointer",
       fontWeight: 600
     }
-  }, "Xo\xE1 \u0111\xE3 xong")), /*#__PURE__*/React.createElement("div", {
+  }, "Xo\xE1 \u0111\xE3 xong"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -1762,7 +1926,7 @@ function TodoPage({
     d: "M14 11v6"
   }), /*#__PURE__*/React.createElement("path", {
     d: "M9 6V4h6v2"
-  })))))));
+  })))))), historyPanel);
 }
 
 /* ─── PlaceholderPage ─── */
@@ -11043,10 +11207,18 @@ function App() {
   const [taiChinh, setTaiChinhState] = useState(() => loadTaiChinh());
   const [lichHocData, setLichHocDataState] = useState(() => loadLichHoc());
   const [todos, setTodosState] = useState(() => loadTodos());
+  const [todoHistory, setTodoHistoryState] = useState(() => loadTodoHistory());
   const setTodos = updater => {
     setTodosState(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       saveTodos(next);
+      return next;
+    });
+  };
+  const setTodoHistory = updater => {
+    setTodoHistoryState(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      saveTodoHistory(next);
       return next;
     });
   };
@@ -11093,12 +11265,40 @@ function App() {
   } = useFirebaseSync();
   // syncId luôn là Firebase Auth UID — đảm bảo dữ liệu thuộc về đúng người dùng
   const syncId = authUid;
+  const todosRef = useRef(todos);
+  const todoHistoryRef = useRef(todoHistory);
+  useEffect(() => {
+    todosRef.current = todos;
+  }, [todos]);
+  useEffect(() => {
+    todoHistoryRef.current = todoHistory;
+  }, [todoHistory]);
   const isFirstLoad = useRef(true);
 
   // Lắng nghe realtime từ Firebase
   // Signal splash to hide
   useEffect(() => {
     if (window._appReady) window._appReady();
+  }, []);
+  // Chuyển việc đã xong của ngày cũ vào lịch sử khi qua ngày mới
+  useEffect(() => {
+    const checkRollover = () => {
+      const result = rolloverTodos(todosRef.current, todoHistoryRef.current);
+      if (result) {
+        setTodos(result.todos);
+        setTodoHistory(result.history);
+      }
+    };
+    checkRollover();
+    const interval = setInterval(checkRollover, 60000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkRollover();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
   useEffect(() => {
     if (!fbReady || !authUid || !window._onSnapshot || !window._fbDoc) return;
@@ -11176,6 +11376,15 @@ function App() {
             }
           } catch {}
         }
+        if (d.todohistory) {
+          try {
+            const v = JSON.parse(d.todohistory);
+            if (v && typeof v === "object" && !Array.isArray(v)) {
+              setTodoHistory(v);
+              saveTodoHistory(v);
+            }
+          } catch {}
+        }
         // Mở khóa sau đủ thời gian để tất cả useEffect ghi đã thấy cờ và bị skip
         // 300ms >> debounce mặc định của todos(0ms) và đủ cho React flush effects
         setTimeout(() => {
@@ -11225,6 +11434,11 @@ function App() {
     saveTodos(todos);
     if (blockWrites.current === 0) pushToFirebase("todos", todos, 300);
   }, [todos]);
+  useEffect(() => {
+    if (!isMounted.current) return;
+    saveTodoHistory(todoHistory);
+    if (blockWrites.current === 0) pushToFirebase("todohistory", todoHistory, 300);
+  }, [todoHistory]);
   useEffect(() => {
     localStorage.setItem("studytodo_theme", themeKey);
   }, [themeKey]);
@@ -11818,7 +12032,9 @@ function App() {
     theme: theme,
     isMobile: isMobile,
     todos: todos,
-    setTodos: setTodos
+    setTodos: setTodos,
+    todoHistory: todoHistory,
+    setTodoHistory: setTodoHistory
   }) : /*#__PURE__*/React.createElement(PlaceholderPage, {
     tab: currentTabInfo,
     theme: theme,
