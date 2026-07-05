@@ -4394,6 +4394,57 @@ function ThemePicker({
 }
 
 /* ─── DarkModeToggle ─── */
+function AppNameEditor({
+  appName,
+  onChange,
+  theme,
+  isMobile
+}) {
+  const [value, setValue] = React.useState(appName);
+  React.useEffect(() => {
+    setValue(appName);
+  }, [appName]);
+  const commit = () => {
+    const v = value.trim();
+    if (v && v !== appName) onChange(v);else setValue(appName);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      alignItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: value,
+    onChange: e => setValue(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        commit();
+        e.target.blur();
+      }
+    },
+    onBlur: commit,
+    maxLength: 24,
+    placeholder: "CANHAN",
+    style: {
+      flex: 1,
+      minWidth: 0,
+      border: "1.5px solid #e5e7eb",
+      borderRadius: 10,
+      padding: isMobile ? "10px 12px" : "8px 12px",
+      fontSize: isMobile ? 15 : 14,
+      fontFamily: "inherit",
+      outline: "none",
+      color: "#111827",
+      background: "#fff",
+      transition: "border-color .15s",
+      textTransform: "uppercase",
+      letterSpacing: "-.02em",
+      fontWeight: 700
+    },
+    onFocus: e => e.target.style.borderColor = theme.accent
+  }));
+}
 function DarkModeToggle({
   dark,
   onChange,
@@ -11240,6 +11291,13 @@ function App() {
   const [newSubjectName, setNewSubjectName] = useState("");
   const [themeKey, setThemeKey] = useState(() => localStorage.getItem("studytodo_theme") || "indigo");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("studytodo_darkmode") === "1");
+  const [appName, setAppNameState] = useState(() => localStorage.getItem("studytodo_appname_v1") || "CANHAN");
+  const setAppName = name => {
+    const v = (name || "").trim() || "CANHAN";
+    setAppNameState(v);
+    localStorage.setItem("studytodo_appname_v1", v);
+    if (blockWrites.current === 0) pushToFirebase("appname", v, 300);
+  };
   const [showDashboard, setShowDashboard] = useState(true);
   const [showLichThi, setShowLichThi] = useState(false);
   const [showImportLichThi, setShowImportLichThi] = useState(false);
@@ -11385,6 +11443,13 @@ function App() {
             }
           } catch {}
         }
+        if (d.appname) {
+          const v = String(d.appname).trim();
+          if (v) {
+            setAppNameState(v);
+            localStorage.setItem("studytodo_appname_v1", v);
+          }
+        }
         // Mở khóa sau đủ thời gian để tất cả useEffect ghi đã thấy cờ và bị skip
         // 300ms >> debounce mặc định của todos(0ms) và đủ cho React flush effects
         setTimeout(() => {
@@ -11522,7 +11587,7 @@ function App() {
       color: "#111827",
       lineHeight: 1.15
     }
-  }, "CANHAN")), /*#__PURE__*/React.createElement("div", {
+  }, appName)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -11567,6 +11632,23 @@ function App() {
     dark: darkMode,
     onChange: setDarkMode,
     theme: theme
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: "#9ca3af",
+      fontWeight: 600,
+      marginBottom: 6,
+      marginTop: 10
+    }
+  }, "TÊN ỨNG DỤNG"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement(AppNameEditor, {
+    appName: appName,
+    onChange: setAppName,
+    theme: theme,
+    isMobile: isMobile
   })), (() => {
     const semStart = lichHocData.semesterStart || "";
     const currentWeek = semStart ? getWeekNumber(today(), semStart) : null;
