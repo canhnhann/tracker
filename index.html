@@ -194,12 +194,40 @@
   window._storage = storage;
   window._uploadLocketImage = (path, file, onProgress) => new Promise((resolve, reject) => {
     const task = uploadBytesResumable(storageRef(storage, path), file, { contentType: file.type || "image/jpeg" });
+    let settled = false;
+    let timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        task.cancel();
+      } catch {}
+      reject(new Error("Firebase Storage khong phan hoi. Hay kiem tra Storage Rules, bucket, ket noi mang hoac thu chay bang localhost."));
+    }, 60000);
+    const finish = fn => value => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
     task.on("state_changed", snap => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        try {
+          task.cancel();
+        } catch {}
+        reject(new Error("Upload bi dung qua lau. Hay kiem tra Storage Rules, bucket, ket noi mang hoac thu anh nho hon."));
+      }, 60000);
       const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
       if (onProgress) onProgress(pct);
-    }, reject, async () => {
-      const url = await getDownloadURL(task.snapshot.ref);
-      resolve({ url, path });
+    }, finish(reject), async () => {
+      try {
+        const url = await getDownloadURL(task.snapshot.ref);
+        finish(resolve)({ url, path });
+      } catch (err) {
+        finish(reject)(err);
+      }
     });
   });
   window._deleteLocketImage = (path) => deleteObject(storageRef(storage, path));
@@ -11235,6 +11263,7 @@ function LocketPage({
   const [allDays, setAllDays] = React.useState({});
   const [uploading, setUploading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
+  const [uploadLabel, setUploadLabel] = React.useState("");
   const [error, setError] = React.useState("");
   const inputRef = React.useRef(null);
   const maxSize = 20 * 1024 * 1024;
@@ -11317,8 +11346,13 @@ function LocketPage({
       return;
     }
     setError("");
+    if (!window._auth?.currentUser) {
+      setError("Locket can dang nhap bang tai khoan Firebase/Google de upload anh len cloud. Tai khoan local khong co quyen Firebase Storage.");
+      return;
+    }
     setUploading(true);
     setProgress(0);
+    setUploadLabel("Dang nen...");
     try {
       let nextItems = [...items];
       for (const file of files) {
@@ -11330,6 +11364,7 @@ function LocketPage({
           setError("Ảnh tối đa 20MB. Hãy chọn ảnh nhẹ hơn.");
           continue;
         }
+        setUploadLabel("Dang nen...");
         const compressedFile = await compressImage(file);
         const nextDaysCandidate = {
           ...allDays,
@@ -11342,7 +11377,11 @@ function LocketPage({
         }
         const safeName = compressedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const path = `locket/${uidValue}/${dateKey}/${Date.now()}-${safeName}`;
-        const uploaded = await window._uploadLocketImage(path, compressedFile, setProgress);
+        setUploadLabel("Dang upload... 0%");
+        const uploaded = await window._uploadLocketImage(path, compressedFile, pct => {
+          setProgress(pct);
+          setUploadLabel(`${pct}%`);
+        });
         nextItems = [{
           id: uid(),
           url: uploaded.url,
@@ -11361,6 +11400,7 @@ function LocketPage({
     } finally {
       setUploading(false);
       setProgress(0);
+      setUploadLabel("");
     }
   };
   const removeItem = async item => {
@@ -11455,7 +11495,7 @@ function LocketPage({
       cursor: uploading ? "default" : "pointer",
       whiteSpace: "nowrap"
     }
-  }, uploading ? `${progress}%` : "+ Ảnh")), /*#__PURE__*/React.createElement("input", {
+  }, uploading ? uploadLabel || `${progress}%` : "+ Ảnh")), /*#__PURE__*/React.createElement("input", {
     ref: inputRef,
     type: "file",
     accept: "image/*",
