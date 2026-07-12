@@ -147,6 +147,33 @@
 
 <div id="app"></div>
 <div id="navbar-portal"></div>
+<script>
+  // Chế độ local được khởi tạo độc lập, không phụ thuộc Firebase/Firestore.
+  window._localMode = false;
+  window._enterLocalMode = function() {
+    const deviceKey = "studytodo_local_device_uid";
+    let localUid = localStorage.getItem(deviceKey);
+    if (!localUid) {
+      localUid = (crypto.randomUUID ? crypto.randomUUID() : `device_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+      localStorage.setItem(deviceKey, localUid);
+    }
+    window._localMode = true;
+    window._currentUid = `local_${localUid}`;
+    window._userEmail = "Chế độ ngoại tuyến";
+    window._fbReady = false;
+    window.dispatchEvent(new CustomEvent("auth-state", {
+      detail: { uid: window._currentUid, email: window._userEmail, local: true }
+    }));
+    window._hideSplash && window._hideSplash();
+  };
+  window._signOutLocal = function() {
+    window._localMode = false;
+    window._currentUid = null;
+    window._userEmail = null;
+    window._fbReady = false;
+    window.dispatchEvent(new CustomEvent("auth-state", { detail: { uid: null } }));
+  };
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script type="module">
@@ -175,14 +202,17 @@
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
   const auth = getAuth(app);
-
-  // Expose Firestore helpers
-  window._db = db;
-  window._fbDoc = (col, uid) => doc(db, col, uid || window._currentUid || "default");
-  window._onSnapshot = onSnapshot;
-  window._setDoc = setDoc;
+  let db = null;
+  function ensureFirestoreForCloudUser() {
+    if (db) return db;
+    db = getFirestore(app);
+    window._db = db;
+    window._fbDoc = (col, uid) => doc(db, col, uid || window._currentUid || "default");
+    window._onSnapshot = onSnapshot;
+    window._setDoc = setDoc;
+    return db;
+  }
 
   // Expose auth actions cho React
   window._auth = auth;
@@ -190,27 +220,6 @@
   window._signUp = (email, password) => createUserWithEmailAndPassword(auth, email, password);
   window._signOut = () => signOut(auth);
 
-  // ── Tài khoản local (không cần mạng) ──
-  const LOCAL_ACCOUNTS = {
-    "admin@test": { password: "admin", uid: "local_admin_uid", email: "admin@test" }
-  };
-  window._signInLocal = function(email, password) {
-    const acc = LOCAL_ACCOUNTS[email];
-    if (acc && acc.password === password) {
-      window._currentUid = acc.uid;
-      window._userEmail  = acc.email;
-      window._fbReady    = false; // local mode — không dùng Firestore
-      window.dispatchEvent(new CustomEvent("auth-state",    { detail: { uid: acc.uid, email: acc.email } }));
-      window.dispatchEvent(new CustomEvent("firebase-ready",{ detail: { uid: acc.uid } }));
-      return true;
-    }
-    return false;
-  };
-  window._signOutLocal = function() {
-    window._currentUid = null;
-    window._userEmail  = null;
-    window.dispatchEvent(new CustomEvent("auth-state", { detail: { uid: null } }));
-  };
   window._signInGoogle = () => signInWithPopup(auth, new GoogleAuthProvider());
   window._changePassword = async (currentPassword, newPassword) => {
     const user = auth.currentUser;
@@ -232,6 +241,11 @@
   // Lắng nghe trạng thái đăng nhập
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
+      // Firebase không được phép đóng phiên ngoại tuyến đang hoạt động.
+      if (window._localMode) {
+        window._hideSplash && window._hideSplash();
+        return;
+      }
       // Chưa đăng nhập → hiện màn hình login
       window._currentUid = null;
       window._fbReady = false;
@@ -240,26 +254,13 @@
       return;
     }
 
+    window._localMode = false;
     window._currentUid = user.uid;
     window._userEmail = user.email;
+    ensureFirestoreForCloudUser();
 
-    // ── Migration một lần: copy dữ liệu từ syncId cũ (anonymous) sang UID mới ──
-    const oldId = localStorage.getItem("studytodo_uid");
-    if (oldId && oldId !== user.uid) {
-      try {
-        const { getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-        const newDocRef = doc(db, "studytodo", user.uid);
-        const oldDocRef = doc(db, "studytodo", oldId);
-        const [newSnap, oldSnap] = await Promise.all([getDoc(newDocRef), getDoc(oldDocRef)]);
-        if (!newSnap.exists() && oldSnap.exists()) {
-          await setDoc(newDocRef, oldSnap.data());
-          console.log("Migration hoan tat.");
-        }
-      } catch (e) {
-        console.warn("Migration failed:", e);
-      }
-    }
-    localStorage.setItem("studytodo_uid", user.uid);
+    // Không migration dữ liệu giữa các UID ở phía trình duyệt.
+    // Mỗi tài khoản chỉ đọc/ghi document mang chính Firebase Auth UID của nó.
 
     window._fbReady = true;
     window.dispatchEvent(new CustomEvent("auth-state", { detail: { uid: user.uid, email: user.email } }));
@@ -297,9 +298,14 @@ const STORAGE_KEY = "studytodo_v3";
 const SCHEDULE_KEY = "studytodo_schedule";
 const SOANBAI_KEY = "studytodo_soanbai";
 const TAICHINH_KEY = "studytodo_taichinh";
+// Mỗi tài khoản có vùng localStorage riêng để không lẫn dữ liệu khi đổi UID.
+function scopedStorageKey(baseKey, uidValue = window._currentUid) {
+  const uidPart = uidValue || "signed-out";
+  return `${baseKey}::${uidPart}`;
+}
 function loadData() {
   try {
-    const r = localStorage.getItem(STORAGE_KEY);
+    const r = localStorage.getItem(scopedStorageKey(STORAGE_KEY));
     return r ? JSON.parse(r) : {
       subjects: []
     };
@@ -309,27 +315,27 @@ function loadData() {
     };
   }
 }
-function saveData(d) {
+function saveData(d, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+    localStorage.setItem(scopedStorageKey(STORAGE_KEY, uidValue), JSON.stringify(d));
   } catch {}
 }
 function loadSchedule() {
   try {
-    const r = localStorage.getItem(SCHEDULE_KEY);
+    const r = localStorage.getItem(scopedStorageKey(SCHEDULE_KEY));
     return r ? JSON.parse(r) : {};
   } catch {
     return {};
   }
 }
-function saveSchedule(s) {
+function saveSchedule(s, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(s));
+    localStorage.setItem(scopedStorageKey(SCHEDULE_KEY, uidValue), JSON.stringify(s));
   } catch {}
 }
 function loadSoanBai() {
   try {
-    const r = localStorage.getItem(SOANBAI_KEY);
+    const r = localStorage.getItem(scopedStorageKey(SOANBAI_KEY));
     return r ? JSON.parse(r) : {
       subjects: []
     };
@@ -339,9 +345,9 @@ function loadSoanBai() {
     };
   }
 }
-function saveSoanBai(d) {
+function saveSoanBai(d, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(SOANBAI_KEY, JSON.stringify(d));
+    localStorage.setItem(scopedStorageKey(SOANBAI_KEY, uidValue), JSON.stringify(d));
   } catch {}
 }
 function ensureThangData(d) {
@@ -361,7 +367,7 @@ function ensureThangData(d) {
 }
 function loadTaiChinh() {
   try {
-    const r = localStorage.getItem(TAICHINH_KEY);
+    const r = localStorage.getItem(scopedStorageKey(TAICHINH_KEY));
     const d = r ? JSON.parse(r) : {
       dichLam: 0,
       chiCungXang: 0,
@@ -384,9 +390,9 @@ function loadTaiChinh() {
     };
   }
 }
-function saveTaiChinh(d) {
+function saveTaiChinh(d, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(TAICHINH_KEY, JSON.stringify(d));
+    localStorage.setItem(scopedStorageKey(TAICHINH_KEY, uidValue), JSON.stringify(d));
   } catch {}
 }
 
@@ -394,25 +400,38 @@ function saveTaiChinh(d) {
 function useFirebaseSync() {
   const [syncing, setSyncing] = useState(false);
   const [syncOk, setSyncOk] = useState(false);
+  const [syncError, setSyncError] = useState(null);
   const [fbReady, setFbReady] = useState(() => !!window._fbReady);
   const [authUid, setAuthUid] = useState(() => window._currentUid || null);
   const [authEmail, setAuthEmail] = useState(() => window._userEmail || null);
   const debounceTimers = useRef({});
   const syncOkTimer = useRef(null);
   const blockWrites = useRef(0);
+  // Chỉ cho phép ghi sau khi Firestore đã trả snapshot đầu tiên của đúng UID.
+  const cloudHydrated = useRef(false);
   const isRemoteUpdate = useRef(false);
   const pendingWrites = useRef(0);
+  const writeFailures = useRef(0);
+  const cancelPendingWrites = useCallback(() => {
+    Object.values(debounceTimers.current).forEach(timer => clearTimeout(timer));
+    debounceTimers.current = {};
+  }, []);
+  const hasPendingWrite = useCallback(key => !!debounceTimers.current[key], []);
   useEffect(() => {
     const onFirebaseReady = e => {
+      cancelPendingWrites();
+      cloudHydrated.current = false;
       setFbReady(true);
       if (e.detail?.uid) setAuthUid(e.detail.uid);
       if (e.detail?.email) setAuthEmail(e.detail.email);
     };
     const onAuthState = e => {
+      cancelPendingWrites();
+      cloudHydrated.current = false;
       if (e.detail?.uid) {
         setAuthUid(e.detail.uid);
         setAuthEmail(e.detail.email || null);
-        setFbReady(true);
+        setFbReady(!e.detail?.local && !!window._fbReady);
       } else {
         setAuthUid(null);
         setAuthEmail(null);
@@ -429,41 +448,84 @@ function useFirebaseSync() {
       window.removeEventListener("firebase-ready", onFirebaseReady);
       window.removeEventListener("auth-state", onAuthState);
     };
-  }, []);
+  }, [cancelPendingWrites]);
+  useEffect(() => {
+    return () => {
+      cancelPendingWrites();
+      if (syncOkTimer.current) {
+        clearTimeout(syncOkTimer.current);
+        syncOkTimer.current = null;
+      }
+    };
+  }, [authUid, cancelPendingWrites]);
   const pushToFirebase = useCallback(async (key, value, debounceMs = 800) => {
     if (!fbReady || !window._setDoc || !window._fbDoc) return;
+    if (!cloudHydrated.current) return;
     if (blockWrites.current > 0) return;
+    const targetUid = authUid;
+    if (!targetUid || targetUid !== window._currentUid) return;
     if (debounceTimers.current[key]) clearTimeout(debounceTimers.current[key]);
-    debounceTimers.current[key] = setTimeout(async () => {
+    const runWrite = async () => {
+      delete debounceTimers.current[key];
       // Kiểm tra lại sau debounce delay — remote có thể vừa về trong thời gian chờ
-      if (blockWrites.current > 0) return;
+      if (!cloudHydrated.current) return;
+      // Timer chỉ được ghi cho đúng tài khoản đã tạo ra nó.
+      if (targetUid !== window._currentUid) return;
+      // Snapshot đang được áp dụng: hoãn thay vì làm mất chỉnh sửa local đang chờ.
+      if (blockWrites.current > 0) {
+        debounceTimers.current[key] = setTimeout(runWrite, 350);
+        return;
+      }
+      if (pendingWrites.current === 0) writeFailures.current = 0;
       pendingWrites.current += 1;
+      if (syncOkTimer.current) {
+        clearTimeout(syncOkTimer.current);
+        syncOkTimer.current = null;
+      }
+      setSyncOk(false);
+      setSyncError(null);
+      setSyncing(true);
       try {
-        setSyncing(true);
-        await window._setDoc(window._fbDoc("studytodo"), {
+        await window._setDoc(window._fbDoc("studytodo", targetUid), {
           [key]: JSON.stringify(value)
         }, {
           merge: true
         });
-        setSyncOk(true);
-        if (syncOkTimer.current) clearTimeout(syncOkTimer.current);
-        syncOkTimer.current = setTimeout(() => setSyncOk(false), 3000);
       } catch (e) {
+        writeFailures.current += 1;
+        setSyncError("Không thể ghi dữ liệu lên cloud. Thay đổi vẫn được giữ trên thiết bị.");
         console.error("Firebase write error", e);
-        setSyncOk(false);
       } finally {
-        setSyncing(false);
-        pendingWrites.current -= 1;
+        pendingWrites.current = Math.max(0, pendingWrites.current - 1);
+        const allWritesFinished = pendingWrites.current === 0;
+        setSyncing(!allWritesFinished);
+        if (allWritesFinished) {
+          const batchSucceeded = writeFailures.current === 0;
+          setSyncOk(batchSucceeded);
+          if (batchSucceeded) {
+            setSyncError(null);
+            syncOkTimer.current = setTimeout(() => {
+              setSyncOk(false);
+              syncOkTimer.current = null;
+            }, 3000);
+          }
+          writeFailures.current = 0;
+        }
       }
-    }, debounceMs);
-  }, [fbReady]);
+    };
+    debounceTimers.current[key] = setTimeout(runWrite, debounceMs);
+  }, [fbReady, authUid]);
   return {
     fbReady,
     authUid,
     authEmail,
     syncing,
     syncOk,
+    syncError,
     pushToFirebase,
+    cancelPendingWrites,
+    hasPendingWrite,
+    cloudHydrated,
     isRemoteUpdate,
     blockWrites,
     pendingWrites
@@ -720,11 +782,6 @@ function LoginScreen() {
       return;
     }
     setLoading(true);
-    // Thử tài khoản local trước (không cần mạng)
-    if (mode === "login" && window._signInLocal && window._signInLocal(email, password)) {
-      setLoading(false);
-      return;
-    }
     try {
       if (mode === "login") await window._signIn(email, password);else await window._signUp(email, password);
     } catch (e) {
@@ -1126,7 +1183,26 @@ function LoginScreen() {
   }), /*#__PURE__*/React.createElement("path", {
     fill: "none",
     d: "M0 0h48v48H0z"
-  })), "Ti\u1EBFp t\u1EE5c v\u1EDBi Google")), /*#__PURE__*/React.createElement("p", {
+  })), "Ti\u1EBFp t\u1EE5c v\u1EDBi Google")), mode === "login" && /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      setError("");
+      window._enterLocalMode && window._enterLocalMode();
+    },
+    disabled: loading,
+    style: {
+      width: "100%",
+      marginTop: 10,
+      padding: "13px 0",
+      background: "#f8fafc",
+      border: "1.5px solid #cbd5e1",
+      borderRadius: 12,
+      color: "#475569",
+      fontSize: 15,
+      fontWeight: 700,
+      cursor: loading ? "not-allowed" : "pointer",
+      fontFamily: "inherit"
+    }
+  }, "D\xF9ng ngo\u1EA1i tuy\u1EBFn (ch\u1EC9 l\u01B0u tr\xEAn thi\u1EBFt b\u1ECB)"), /*#__PURE__*/React.createElement("p", {
     style: {
       textAlign: "center",
       fontSize: 13,
@@ -1456,37 +1532,37 @@ const TODO_HISTORY_KEY = "studytodo_todo_history_v1";
 const TODO_LASTDATE_KEY = "studytodo_todos_lastdate_v1";
 function loadTodos() {
   try {
-    const d = localStorage.getItem(TODO_STORAGE_KEY);
+    const d = localStorage.getItem(scopedStorageKey(TODO_STORAGE_KEY));
     return d ? JSON.parse(d) : [];
   } catch {
     return [];
   }
 }
-function saveTodos(t) {
+function saveTodos(t, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(t));
+    localStorage.setItem(scopedStorageKey(TODO_STORAGE_KEY, uidValue), JSON.stringify(t));
   } catch {}
 }
 function loadTodoHistory() {
   try {
-    const d = localStorage.getItem(TODO_HISTORY_KEY);
+    const d = localStorage.getItem(scopedStorageKey(TODO_HISTORY_KEY));
     const v = d ? JSON.parse(d) : {};
     return v && typeof v === "object" && !Array.isArray(v) ? v : {};
   } catch {
     return {};
   }
 }
-function saveTodoHistory(h) {
+function saveTodoHistory(h, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(TODO_HISTORY_KEY, JSON.stringify(h));
+    localStorage.setItem(scopedStorageKey(TODO_HISTORY_KEY, uidValue), JSON.stringify(h));
   } catch {}
 }
 // Chuyển các việc đã xong của (các) ngày trước vào lịch sử, giữ lại việc chưa xong
 function rolloverTodos(todos, todoHistory) {
   const today = toDateKey(new Date());
-  const lastDate = localStorage.getItem(TODO_LASTDATE_KEY);
+  const lastDate = localStorage.getItem(scopedStorageKey(TODO_LASTDATE_KEY));
   if (!lastDate) {
-    localStorage.setItem(TODO_LASTDATE_KEY, today);
+    localStorage.setItem(scopedStorageKey(TODO_LASTDATE_KEY), today);
     return null;
   }
   if (lastDate === today) return null;
@@ -1499,7 +1575,7 @@ function rolloverTodos(todos, todoHistory) {
       [lastDate]: [...(todoHistory[lastDate] || []), ...done]
     };
   }
-  localStorage.setItem(TODO_LASTDATE_KEY, today);
+  localStorage.setItem(scopedStorageKey(TODO_LASTDATE_KEY), today);
   if (done.length === 0 && undone.length === todos.length) return null;
   return {
     todos: undone,
@@ -1686,7 +1762,7 @@ function TodoPage({
       display: "flex",
       gap: 8
     }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, !window._localMode && /*#__PURE__*/React.createElement("button", {
     onClick: () => setShowHistory(v => !v),
     style: {
       fontSize: 13,
@@ -4690,7 +4766,7 @@ function DayScheduleSheet({
 const LICHHOC_KEY = "studytodo_lichhoc_v2";
 function loadLichHoc() {
   try {
-    const r = localStorage.getItem(LICHHOC_KEY);
+    const r = localStorage.getItem(scopedStorageKey(LICHHOC_KEY));
     return r ? JSON.parse(r) : {
       subjects: [],
       semesterStart: ""
@@ -4702,9 +4778,9 @@ function loadLichHoc() {
     };
   }
 }
-function saveLichHoc(d) {
+function saveLichHoc(d, uidValue = window._currentUid) {
   try {
-    localStorage.setItem(LICHHOC_KEY, JSON.stringify(d));
+    localStorage.setItem(scopedStorageKey(LICHHOC_KEY, uidValue), JSON.stringify(d));
   } catch {}
 }
 
@@ -11289,13 +11365,13 @@ function App() {
   };
   const [addingSubject, setAddingSubject] = useState(false);
   const [newSubjectName, setNewSubjectName] = useState("");
-  const [themeKey, setThemeKey] = useState(() => localStorage.getItem("studytodo_theme") || "indigo");
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("studytodo_darkmode") === "1");
-  const [appName, setAppNameState] = useState(() => localStorage.getItem("studytodo_appname_v1") || "CANHAN");
+  const [themeKey, setThemeKey] = useState(() => localStorage.getItem(scopedStorageKey("studytodo_theme")) || "indigo");
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem(scopedStorageKey("studytodo_darkmode")) === "1");
+  const [appName, setAppNameState] = useState(() => localStorage.getItem(scopedStorageKey("studytodo_appname_v1")) || "CANHAN");
   const setAppName = name => {
     const v = (name || "").trim() || "CANHAN";
     setAppNameState(v);
-    localStorage.setItem("studytodo_appname_v1", v);
+    localStorage.setItem(scopedStorageKey("studytodo_appname_v1"), v);
     if (blockWrites.current === 0) pushToFirebase("appname", v, 300);
   };
   const [showDashboard, setShowDashboard] = useState(true);
@@ -11309,6 +11385,8 @@ function App() {
   const [showChangePass, setShowChangePass] = useState(false);
   const [importId, setImportId] = useState("");
   const [showImportBox, setShowImportBox] = useState(false);
+  const [snapshotError, setSnapshotError] = useState(null);
+  const [snapshotRetry, setSnapshotRetry] = useState(0);
   const theme = THEMES[themeKey] || THEMES.indigo;
   const {
     fbReady,
@@ -11316,7 +11394,10 @@ function App() {
     authEmail,
     syncing,
     syncOk,
+    syncError,
     pushToFirebase,
+    hasPendingWrite,
+    cloudHydrated,
     isRemoteUpdate,
     blockWrites,
     pendingWrites
@@ -11360,9 +11441,17 @@ function App() {
   }, []);
   useEffect(() => {
     if (!fbReady || !authUid || !window._onSnapshot || !window._fbDoc) return;
+    cloudHydrated.current = false;
+    setSnapshotError(null);
     try {
       const unsub = window._onSnapshot(window._fbDoc("studytodo", authUid), snap => {
+        // Callback cũ đã nằm trong hàng đợi không được phép chạm state/local của UID mới.
+        if (authUid !== window._currentUid) return;
+        setSnapshotError(null);
         if (!snap.exists()) {
+          // Đã xác nhận cloud trống. Không tự đẩy localStorage cũ lên;
+          // chỉ các thay đổi mới của người dùng sau thời điểm này mới được ghi.
+          cloudHydrated.current = true;
           isFirstLoad.current = false;
           return;
         }
@@ -11370,34 +11459,36 @@ function App() {
         // Tăng blockWrites để pushToFirebase bị chặn hoàn toàn
         blockWrites.current += 1;
         isRemoteUpdate.current = true;
-        if (d.monhoc) {
+        // Mỗi field có chỉnh sửa local đang chờ sẽ giữ local-wins;
+        // các field còn lại vẫn nhận snapshot cloud bình thường.
+        if (d.monhoc && !hasPendingWrite("monhoc")) {
           try {
             const v = JSON.parse(d.monhoc);
             const safe = {
               subjects: Array.isArray(v?.subjects) ? v.subjects : []
             };
             setData(safe);
-            saveData(safe);
+            saveData(safe, authUid);
           } catch {}
         }
-        if (d.lichhoc) {
+        if (d.lichhoc && !hasPendingWrite("lichhoc")) {
           try {
             const v = JSON.parse(d.lichhoc);
             setSchedule(v || {});
-            saveSchedule(v || {});
+            saveSchedule(v || {}, authUid);
           } catch {}
         }
-        if (d.soanbai) {
+        if (d.soanbai && !hasPendingWrite("soanbai")) {
           try {
             const v = JSON.parse(d.soanbai);
             const safe = {
               subjects: Array.isArray(v?.subjects) ? v.subjects : []
             };
             setSoanBaiData(safe);
-            saveSoanBai(safe);
+            saveSoanBai(safe, authUid);
           } catch {}
         }
-        if (d.taichinh) {
+        if (d.taichinh && !hasPendingWrite("taichinh")) {
           try {
             const v = JSON.parse(d.taichinh);
             const safe = {
@@ -11410,10 +11501,10 @@ function App() {
             };
             safe.thangData = ensureThangData({ ...v, ...safe });
             setTaiChinhState(safe);
-            saveTaiChinh(safe);
+            saveTaiChinh(safe, authUid);
           } catch {}
         }
-        if (d.thoikhoa) {
+        if (d.thoikhoa && !hasPendingWrite("thoikhoa")) {
           try {
             const v = JSON.parse(d.thoikhoa);
             const safe = {
@@ -11422,32 +11513,32 @@ function App() {
               appointments: Array.isArray(v?.appointments) ? v.appointments : []
             };
             setLichHocDataState(safe);
-            saveLichHoc(safe);
+            saveLichHoc(safe, authUid);
           } catch {}
         }
-        if (d.todos) {
+        if (d.todos && !hasPendingWrite("todos")) {
           try {
             const v = JSON.parse(d.todos);
             if (Array.isArray(v)) {
-              setTodos(v);
-              saveTodos(v);
+              setTodosState(v);
+              saveTodos(v, authUid);
             }
           } catch {}
         }
-        if (d.todohistory) {
+        if (d.todohistory && !hasPendingWrite("todohistory")) {
           try {
             const v = JSON.parse(d.todohistory);
             if (v && typeof v === "object" && !Array.isArray(v)) {
-              setTodoHistory(v);
-              saveTodoHistory(v);
+              setTodoHistoryState(v);
+              saveTodoHistory(v, authUid);
             }
           } catch {}
         }
-        if (d.appname) {
+        if (d.appname && !hasPendingWrite("appname")) {
           const v = String(d.appname).trim();
           if (v) {
             setAppNameState(v);
-            localStorage.setItem("studytodo_appname_v1", v);
+            localStorage.setItem(scopedStorageKey("studytodo_appname_v1", authUid), v);
           }
         }
         // Mở khóa sau đủ thời gian để tất cả useEffect ghi đã thấy cờ và bị skip
@@ -11455,14 +11546,24 @@ function App() {
         setTimeout(() => {
           blockWrites.current -= 1;
           isRemoteUpdate.current = false;
+          cloudHydrated.current = true;
           isFirstLoad.current = false;
         }, 300);
+      }, error => {
+        cloudHydrated.current = false;
+        setSnapshotError("Không thể tải dữ liệu cloud. Dữ liệu hiện chỉ được lưu trên thiết bị.");
+        console.error("Snapshot error:", error);
       });
-      return () => unsub();
+      return () => {
+        cloudHydrated.current = false;
+        unsub();
+      };
     } catch (e) {
+      cloudHydrated.current = false;
+      setSnapshotError("Không thể khởi tạo đồng bộ cloud. Dữ liệu hiện chỉ được lưu trên thiết bị.");
       console.error("Snapshot error:", e);
     }
-  }, [fbReady, authUid]);
+  }, [fbReady, authUid, hasPendingWrite, snapshotRetry]);
 
   // Ghi lên Firebase + localStorage khi data thay đổi (bỏ qua lần mount đầu tiên và khi đang nhận remote)
   const isMounted = useRef(false);
@@ -11505,10 +11606,10 @@ function App() {
     if (blockWrites.current === 0) pushToFirebase("todohistory", todoHistory, 300);
   }, [todoHistory]);
   useEffect(() => {
-    localStorage.setItem("studytodo_theme", themeKey);
+    localStorage.setItem(scopedStorageKey("studytodo_theme"), themeKey);
   }, [themeKey]);
   useEffect(() => {
-    localStorage.setItem("studytodo_darkmode", darkMode ? "1" : "0");
+    localStorage.setItem(scopedStorageKey("studytodo_darkmode"), darkMode ? "1" : "0");
     const appEl = document.getElementById("app");
     document.documentElement.classList.toggle("dark-mode", darkMode);
     if (appEl) appEl.classList.toggle("dark-mode", darkMode);
@@ -11809,7 +11910,7 @@ function App() {
     }
   }, "\uD83D\uDD11 \u0110\u1ED5i m\u1EADt kh\u1EA9u"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (window._currentUid === 'local_admin_uid' && window._signOutLocal) {
+      if (window._localMode && window._signOutLocal) {
         window._signOutLocal();
       } else if (window._signOut) {
         window._signOut();
@@ -11826,9 +11927,38 @@ function App() {
       fontWeight: 600,
       fontFamily: "inherit"
     }
-  }, "\uD83D\uDEAA \u0110\u0103ng xu\u1EA5t")), showChangePass && /*#__PURE__*/React.createElement(ChangePasswordModal, {
+  }, "\uD83D\uDEAA \u0110\u0103ng xu\u1EA5t")), showChangePass && !window._localMode && /*#__PURE__*/React.createElement(ChangePasswordModal, {
     onClose: () => setShowChangePass(false)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), !window._localMode && (snapshotError || syncError) && /*#__PURE__*/React.createElement("div", {
+    role: "alert",
+    style: {
+      maxWidth: isMobile ? "calc(100% - 32px)" : 664,
+      margin: "12px auto 0",
+      padding: "11px 14px",
+      background: "#fff7ed",
+      border: "1px solid #fed7aa",
+      borderRadius: 10,
+      color: "#9a3412",
+      fontSize: 13,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "\u26A0 Ch\u01B0a \u0111\u1ED3ng b\u1ED9: ", snapshotError || syncError), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setSnapshotRetry(v => v + 1),
+    style: {
+      border: "1px solid #fdba74",
+      background: "#fff",
+      color: "#c2410c",
+      borderRadius: 8,
+      padding: "6px 10px",
+      fontWeight: 700,
+      cursor: "pointer",
+      flexShrink: 0,
+      fontFamily: "inherit"
+    }
+  }, "Th\u1EED l\u1EA1i")), /*#__PURE__*/React.createElement("div", {
     style: { overflowX: "clip", flex: 1 }
   }, /*#__PURE__*/React.createElement("div", {
     key: animKey,
