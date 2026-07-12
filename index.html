@@ -303,6 +303,38 @@ function scopedStorageKey(baseKey, uidValue = window._currentUid) {
   const uidPart = uidValue || "signed-out";
   return `${baseKey}::${uidPart}`;
 }
+const CLOUD_OUTBOX_KEY = "studytodo_cloud_outbox_v1";
+const CLOUD_SYNC_KEYS = ["monhoc", "lichhoc", "soanbai", "taichinh", "thoikhoa", "todos", "todohistory", "appname"];
+function loadCloudOutbox(uidValue = window._currentUid) {
+  try {
+    const raw = localStorage.getItem(scopedStorageKey(CLOUD_OUTBOX_KEY, uidValue));
+    const value = raw ? JSON.parse(raw) : {};
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+function saveCloudOutbox(outbox, uidValue = window._currentUid) {
+  try {
+    const storageKey = scopedStorageKey(CLOUD_OUTBOX_KEY, uidValue);
+    if (Object.keys(outbox).length === 0) localStorage.removeItem(storageKey);else localStorage.setItem(storageKey, JSON.stringify(outbox));
+  } catch {}
+}
+function markCloudWritePending(key, value, uidValue = window._currentUid) {
+  if (!uidValue || String(uidValue).startsWith("local_")) return;
+  const outbox = loadCloudOutbox(uidValue);
+  outbox[key] = JSON.stringify(value);
+  saveCloudOutbox(outbox, uidValue);
+}
+function hasCloudWritePending(key, uidValue = window._currentUid) {
+  return Object.prototype.hasOwnProperty.call(loadCloudOutbox(uidValue), key);
+}
+function clearCloudWriteIfMatches(key, value, uidValue = window._currentUid) {
+  const outbox = loadCloudOutbox(uidValue);
+  if (outbox[key] !== JSON.stringify(value)) return;
+  delete outbox[key];
+  saveCloudOutbox(outbox, uidValue);
+}
 function loadData() {
   try {
     const r = localStorage.getItem(scopedStorageKey(STORAGE_KEY));
@@ -491,6 +523,7 @@ function useFirebaseSync() {
         }, {
           merge: true
         });
+        clearCloudWriteIfMatches(key, value, targetUid);
       } catch (e) {
         writeFailures.current += 1;
         setSyncError("Không thể ghi dữ liệu lên cloud. Thay đổi vẫn được giữ trên thiết bị.");
@@ -11372,7 +11405,10 @@ function App() {
     const v = (name || "").trim() || "CANHAN";
     setAppNameState(v);
     localStorage.setItem(scopedStorageKey("studytodo_appname_v1"), v);
-    if (blockWrites.current === 0) pushToFirebase("appname", v, 300);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("appname", v, authUid);
+      pushToFirebase("appname", v, 300);
+    }
   };
   const [showDashboard, setShowDashboard] = useState(true);
   const [showLichThi, setShowLichThi] = useState(false);
@@ -11402,6 +11438,18 @@ function App() {
     blockWrites,
     pendingWrites
   } = useFirebaseSync();
+  const flushCloudOutbox = useCallback(uidValue => {
+    if (!uidValue || uidValue !== window._currentUid || !fbReady) return;
+    const outbox = loadCloudOutbox(uidValue);
+    CLOUD_SYNC_KEYS.forEach(key => {
+      if (!Object.prototype.hasOwnProperty.call(outbox, key)) return;
+      try {
+        pushToFirebase(key, JSON.parse(outbox[key]), 0);
+      } catch {
+        // Payload hỏng vẫn được giữ lại để không âm thầm mất dữ liệu.
+      }
+    });
+  }, [fbReady, pushToFirebase]);
   // syncId luôn là Firebase Auth UID — đảm bảo dữ liệu thuộc về đúng người dùng
   const syncId = authUid;
   const todosRef = useRef(todos);
@@ -11450,9 +11498,10 @@ function App() {
         setSnapshotError(null);
         if (!snap.exists()) {
           // Đã xác nhận cloud trống. Không tự đẩy localStorage cũ lên;
-          // chỉ các thay đổi mới của người dùng sau thời điểm này mới được ghi.
+          // chỉ flush những thay đổi đã được đánh dấu chưa đồng bộ.
           cloudHydrated.current = true;
           isFirstLoad.current = false;
+          flushCloudOutbox(authUid);
           return;
         }
         const d = snap.data();
@@ -11461,7 +11510,7 @@ function App() {
         isRemoteUpdate.current = true;
         // Mỗi field có chỉnh sửa local đang chờ sẽ giữ local-wins;
         // các field còn lại vẫn nhận snapshot cloud bình thường.
-        if (d.monhoc && !hasPendingWrite("monhoc")) {
+        if (d.monhoc && !hasPendingWrite("monhoc") && !hasCloudWritePending("monhoc", authUid)) {
           try {
             const v = JSON.parse(d.monhoc);
             const safe = {
@@ -11471,14 +11520,14 @@ function App() {
             saveData(safe, authUid);
           } catch {}
         }
-        if (d.lichhoc && !hasPendingWrite("lichhoc")) {
+        if (d.lichhoc && !hasPendingWrite("lichhoc") && !hasCloudWritePending("lichhoc", authUid)) {
           try {
             const v = JSON.parse(d.lichhoc);
             setSchedule(v || {});
             saveSchedule(v || {}, authUid);
           } catch {}
         }
-        if (d.soanbai && !hasPendingWrite("soanbai")) {
+        if (d.soanbai && !hasPendingWrite("soanbai") && !hasCloudWritePending("soanbai", authUid)) {
           try {
             const v = JSON.parse(d.soanbai);
             const safe = {
@@ -11488,7 +11537,7 @@ function App() {
             saveSoanBai(safe, authUid);
           } catch {}
         }
-        if (d.taichinh && !hasPendingWrite("taichinh")) {
+        if (d.taichinh && !hasPendingWrite("taichinh") && !hasCloudWritePending("taichinh", authUid)) {
           try {
             const v = JSON.parse(d.taichinh);
             const safe = {
@@ -11504,7 +11553,7 @@ function App() {
             saveTaiChinh(safe, authUid);
           } catch {}
         }
-        if (d.thoikhoa && !hasPendingWrite("thoikhoa")) {
+        if (d.thoikhoa && !hasPendingWrite("thoikhoa") && !hasCloudWritePending("thoikhoa", authUid)) {
           try {
             const v = JSON.parse(d.thoikhoa);
             const safe = {
@@ -11516,7 +11565,7 @@ function App() {
             saveLichHoc(safe, authUid);
           } catch {}
         }
-        if (d.todos && !hasPendingWrite("todos")) {
+        if (d.todos && !hasPendingWrite("todos") && !hasCloudWritePending("todos", authUid)) {
           try {
             const v = JSON.parse(d.todos);
             if (Array.isArray(v)) {
@@ -11525,7 +11574,7 @@ function App() {
             }
           } catch {}
         }
-        if (d.todohistory && !hasPendingWrite("todohistory")) {
+        if (d.todohistory && !hasPendingWrite("todohistory") && !hasCloudWritePending("todohistory", authUid)) {
           try {
             const v = JSON.parse(d.todohistory);
             if (v && typeof v === "object" && !Array.isArray(v)) {
@@ -11534,7 +11583,7 @@ function App() {
             }
           } catch {}
         }
-        if (d.appname && !hasPendingWrite("appname")) {
+        if (d.appname && !hasPendingWrite("appname") && !hasCloudWritePending("appname", authUid)) {
           const v = String(d.appname).trim();
           if (v) {
             setAppNameState(v);
@@ -11548,6 +11597,7 @@ function App() {
           isRemoteUpdate.current = false;
           cloudHydrated.current = true;
           isFirstLoad.current = false;
+          flushCloudOutbox(authUid);
         }, 300);
       }, error => {
         cloudHydrated.current = false;
@@ -11563,47 +11613,86 @@ function App() {
       setSnapshotError("Không thể khởi tạo đồng bộ cloud. Dữ liệu hiện chỉ được lưu trên thiết bị.");
       console.error("Snapshot error:", e);
     }
-  }, [fbReady, authUid, hasPendingWrite, snapshotRetry]);
+  }, [fbReady, authUid, hasPendingWrite, flushCloudOutbox, snapshotRetry]);
 
   // Ghi lên Firebase + localStorage khi data thay đổi (bỏ qua lần mount đầu tiên và khi đang nhận remote)
-  const isMounted = useRef(false);
+  const mountedFields = useRef({});
   useEffect(() => {
-    if (!isMounted.current) {
-      isMounted.current = true;
+    if (!mountedFields.current.monhoc) {
+      mountedFields.current.monhoc = true;
       return;
     }
     saveData(data);
-    if (blockWrites.current === 0) pushToFirebase("monhoc", data);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("monhoc", data, authUid);
+      pushToFirebase("monhoc", data);
+    }
   }, [data]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.lichhoc) {
+      mountedFields.current.lichhoc = true;
+      return;
+    }
     saveSchedule(schedule);
-    if (blockWrites.current === 0) pushToFirebase("lichhoc", schedule);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("lichhoc", schedule, authUid);
+      pushToFirebase("lichhoc", schedule);
+    }
   }, [schedule]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.soanbai) {
+      mountedFields.current.soanbai = true;
+      return;
+    }
     saveSoanBai(soanBaiData);
-    if (blockWrites.current === 0) pushToFirebase("soanbai", soanBaiData);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("soanbai", soanBaiData, authUid);
+      pushToFirebase("soanbai", soanBaiData);
+    }
   }, [soanBaiData]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.taichinh) {
+      mountedFields.current.taichinh = true;
+      return;
+    }
     saveTaiChinh(taiChinh);
-    if (blockWrites.current === 0) pushToFirebase("taichinh", taiChinh);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("taichinh", taiChinh, authUid);
+      pushToFirebase("taichinh", taiChinh);
+    }
   }, [taiChinh]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.thoikhoa) {
+      mountedFields.current.thoikhoa = true;
+      return;
+    }
     saveLichHoc(lichHocData);
-    if (blockWrites.current === 0) pushToFirebase("thoikhoa", lichHocData);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("thoikhoa", lichHocData, authUid);
+      pushToFirebase("thoikhoa", lichHocData);
+    }
   }, [lichHocData]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.todos) {
+      mountedFields.current.todos = true;
+      return;
+    }
     saveTodos(todos);
-    if (blockWrites.current === 0) pushToFirebase("todos", todos, 300);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("todos", todos, authUid);
+      pushToFirebase("todos", todos, 300);
+    }
   }, [todos]);
   useEffect(() => {
-    if (!isMounted.current) return;
+    if (!mountedFields.current.todohistory) {
+      mountedFields.current.todohistory = true;
+      return;
+    }
     saveTodoHistory(todoHistory);
-    if (blockWrites.current === 0) pushToFirebase("todohistory", todoHistory, 300);
+    if (blockWrites.current === 0) {
+      if (fbReady && authUid) markCloudWritePending("todohistory", todoHistory, authUid);
+      pushToFirebase("todohistory", todoHistory, 300);
+    }
   }, [todoHistory]);
   useEffect(() => {
     localStorage.setItem(scopedStorageKey("studytodo_theme"), themeKey);
